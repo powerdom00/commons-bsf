@@ -17,10 +17,7 @@
 
 package org.apache.bsf.engines.netrexx;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Hashtable;
@@ -81,10 +78,10 @@ public class NetRexxEngine extends BSFEngineImpl
 {
     BSFFunctions mgrfuncs;
     static Hashtable codeToClass=new Hashtable();
-    static String serializeCompilation="";
+    static final String serializeCompilation="";
     static String placeholder="$$CLASSNAME$$";
     String minorPrefix;
-
+    static final String logClass=".class";
     // private Log logger = LogFactory.getLog(this.getClass().getName());
     private BSF_Log logger;
 
@@ -99,7 +96,7 @@ public class NetRexxEngine extends BSFEngineImpl
      * of the NetRexx engine.
      */
   private static int uniqueFileOffset=0;
-  private class GeneratedFile
+  public static class GeneratedFile
   {
     File file=null;
     FileOutputStream fos=null;
@@ -244,6 +241,123 @@ public class NetRexxEngine extends BSFEngineImpl
      * Nobody knows whether javac is threadsafe.
      * I'm going to serialize access to the compilers to protect it.
      */
+    public void checkDelete(File file){
+        if(file.exists()) {
+            file.delete();
+        }
+    }
+    public String editScript(String script,String classname){
+        // Edit the script to replace placeholder with the generated
+        // classname. Note that this occurs _after_ the cache was
+        // checked!
+        int startpoint,endpoint;
+        if((startpoint=script.indexOf(placeholder))>=0)
+        {
+            StringBuffer changed=new StringBuffer();
+            for(;
+                startpoint>=0;
+                startpoint=script.indexOf(placeholder,startpoint))
+            {
+                changed.setLength(0);   // Reset for 2nd pass or later
+                if(startpoint>0)
+                    changed.append(script.substring(0,startpoint));
+                changed.append(classname);
+                endpoint=startpoint+placeholder.length();
+                if(endpoint<script.length())
+                    changed.append(script.substring(endpoint));
+                script=changed.toString();
+            }
+        }
+        return script;
+    }
+    public void cleanFile(String classname){
+        if (classname!=null){
+        // Generated src
+        File file=new File(tempDir+File.separatorChar+classname+".java");
+        checkDelete(file);
+
+        // Generated class
+        file=new File(classname+logClass);
+        checkDelete(file);
+
+        // Can this be done without disrupting trace?
+        file=new File(tempDir+File.separatorChar+classname+".crossref");
+        checkDelete(file);
+
+        // Search for and clean up minor classes, classname$xxx.class
+        file=new File(tempDir);
+        minorPrefix=classname+"$"; // Indirect arg to filter
+        String[] minor_classfiles=
+                file.list(
+                        // ANONYMOUS CLASS for filter:
+                        new FilenameFilter()
+                        {
+                            // Starts with classname$ and ends with .class
+                            public boolean accept(File dir,String name)
+                            {
+                                return
+                                        (0==name.indexOf(minorPrefix))
+                                                &&
+                                                (name.lastIndexOf(logClass)==name.length()-6)
+                                        ;
+                            }
+                        }
+                );
+        if(minor_classfiles!=null)
+            for(int i=minor_classfiles.length;i>0;)
+            {
+                file=new File(minor_classfiles[--i]);
+                file.delete();
+            }
+        }
+    }
+    public void writeGeneratedFile(Boolean returnsObject,String script,GeneratedFile gf) throws IOException {
+        BSFDeclaredBean tempBean;
+        String className=null;
+        for (int i = 0; i < declaredBeans.size (); i++)
+        {
+            tempBean  = (BSFDeclaredBean) declaredBeans.elementAt (i);
+            className = StringUtils.getClassName (tempBean.type);
+
+            gf.fos.write ((tempBean.name + " =" + className + "   bsf.lookupBean(\"" +
+                    tempBean.name + "\");").getBytes());
+        }
+
+        if(returnsObject)
+            gf.fos.write("return ".getBytes());
+
+        // Copy the input to the file.
+        // Assumes all available -- probably mistake, but same as
+        // other engines.
+        gf.fos.write(script.getBytes());
+        gf.fos.close();
+
+        logger.debug("NetRexxEngine: wrote temp file " +
+                gf.file.getPath () + ", now compiling");
+    }
+    public int compileThroughJava(GeneratedFile gf){
+        String command=gf.file.getPath(); //classname;
+        if (logger.isDebugEnabled()) {
+            command += " -verbose4";
+        } else {
+            command += " -noverbose";
+            command += " -noconsole";
+        }
+
+        netrexx.lang.Rexx cmdline= new netrexx.lang.Rexx(command);
+        int retValue;
+
+        // May not be threadsafe. Serialize access on static object:
+        synchronized(serializeCompilation)
+        {
+            // compile to a .java file
+            retValue =
+                    COM.ibm.netrexx.process.NetRexxC.main(cmdline,
+                            new PrintWriter(System.err));
+        }
+        return retValue;
+    }
+
     public Object execEvalShared (String source, int lineNo, int columnNo,
                               Object oscript,boolean returnsObject)
     throws BSFException
@@ -295,69 +409,13 @@ public class NetRexxEngine extends BSFEngineImpl
                             // Edit the script to replace placeholder with the generated
                             // classname. Note that this occurs _after_ the cache was
                             // checked!
-                            int startpoint,endpoint;
-                            if((startpoint=script.indexOf(placeholder))>=0)
-                {
-                                    StringBuffer changed=new StringBuffer();
-                                    for(;
-                                        startpoint>=0;
-                                        startpoint=script.indexOf(placeholder,startpoint))
-                    {
-                                            changed.setLength(0);   // Reset for 2nd pass or later
-                                            if(startpoint>0)
-                                                changed.append(script.substring(0,startpoint));
-                                            changed.append(classname);
-                                            endpoint=startpoint+placeholder.length();
-                                            if(endpoint<script.length())
-                                                changed.append(script.substring(endpoint));
-                                            script=changed.toString();
-                    }
-                }
 
-                            BSFDeclaredBean tempBean;
-                            String          className;
+                            script=editScript(script,classname);
 
-                            for (int i = 0; i < declaredBeans.size (); i++)
-                {
-                                    tempBean  = (BSFDeclaredBean) declaredBeans.elementAt (i);
-                                    className = StringUtils.getClassName (tempBean.type);
-
-                                    gf.fos.write ((tempBean.name + " =" + className + "   bsf.lookupBean(\"" +
-                                                   tempBean.name + "\");").getBytes());
-                }
-
-                            if(returnsObject)
-                                gf.fos.write("return ".getBytes());
-
-                            // Copy the input to the file.
-                            // Assumes all available -- probably mistake, but same as
-                            // other engines.
-                            gf.fos.write(script.getBytes());
-                            gf.fos.close();
-
-                            logger.debug("NetRexxEngine: wrote temp file " +
-                                                   gf.file.getPath () + ", now compiling");
+                            writeGeneratedFile(returnsObject,script,gf);
 
                             // Compile through Java to .class file
-                    String command=gf.file.getPath(); //classname;
-                    if (logger.isDebugEnabled()) {
-                        command += " -verbose4";
-                    } else {
-                        command += " -noverbose";
-                        command += " -noconsole";
-                    }
-
-                    netrexx.lang.Rexx cmdline= new netrexx.lang.Rexx(command);
-                    int retValue;
-
-                    // May not be threadsafe. Serialize access on static object:
-                    synchronized(serializeCompilation)
-                        {
-                            // compile to a .java file
-                            retValue =
-                                COM.ibm.netrexx.process.NetRexxC.main(cmdline,
-                                                                      new PrintWriter(System.err));
-                        }
+                            int retValue=compileThroughJava(gf);
 
                 // Check if there were errors while compiling the Rexx code.
                 if (retValue == 2)
@@ -400,50 +458,7 @@ public class NetRexxEngine extends BSFEngineImpl
 
             if(gf!=null && gf.file!=null && gf.file.exists())
                 gf.file.delete();  // .nrx file
-
-            if(classname!=null)
-            {
-                // Generated src
-                File file=new File(tempDir+File.separatorChar+classname+".java");
-                if(file.exists())
-                    file.delete();
-
-                // Generated class
-                file=new File(classname+".class");
-                if(file.exists())
-                    file.delete();
-
-                // Can this be done without disrupting trace?
-                file=new File(tempDir+File.separatorChar+classname+".crossref");
-                if(file.exists())
-                    file.delete();
-
-                // Search for and clean up minor classes, classname$xxx.class
-                file=new File(tempDir);
-                minorPrefix=classname+"$"; // Indirect arg to filter
-                String[] minor_classfiles=
-                    file.list(
-                        // ANONYMOUS CLASS for filter:
-                        new FilenameFilter()
-                        {
-                            // Starts with classname$ and ends with .class
-                            public boolean accept(File dir,String name)
-                            {
-                                return
-                                    (0==name.indexOf(minorPrefix))
-                                    &&
-                                    (name.lastIndexOf(".class")==name.length()-6)
-                                    ;
-                            }
-                        }
-                        );
-                if(minor_classfiles!=null)
-                    for(int i=minor_classfiles.length;i>0;)
-                    {
-                        file=new File(minor_classfiles[--i]);
-                        file.delete();
-                    }
-            }
+            cleanFile(classname);
         }
 
         return retval;
@@ -471,7 +486,7 @@ private GeneratedFile openUniqueFile(String directory,String prefix,String suffi
                 {
                     className = prefix+uniqueFileOffset;
                     file=new File(directory+File.separatorChar+className+suffix);
-                    obj=new File(directory+File.separatorChar+className+".class");
+                    obj=new File(directory+File.separatorChar+className+logClass);
                     if(file!=null && !file.exists() & obj!=null & !obj.exists())
                         fos=new FileOutputStream(file);
                 }

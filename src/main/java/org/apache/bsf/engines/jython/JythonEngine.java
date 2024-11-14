@@ -42,6 +42,7 @@ import org.python.util.InteractiveInterpreter;
 public class JythonEngine extends BSFEngineImpl {
     BSFPythonInterpreter interp;
     private final static Pattern fromRegExp = Pattern.compile("from ([.^\\S]*)");
+    public static final String exceptionFromJython="exception from Jython:\n";
 
     /**
      * call the named method of the given object.
@@ -73,7 +74,7 @@ public class JythonEngine extends BSFEngineImpl {
 
             return null;
         } catch (final PyException e) {
-            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception from Jython:\n" + e, e);
+            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, exceptionFromJython + e, e);
         }
     }
 
@@ -116,7 +117,7 @@ public class JythonEngine extends BSFEngineImpl {
             }
             return result;
         } catch (final PyException e) {
-            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception from Jython:\n" + e, e);
+            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, exceptionFromJython + e, e);
         }
     }
 
@@ -133,7 +134,7 @@ public class JythonEngine extends BSFEngineImpl {
             }
             return result;
         } catch (final PyException e) {
-            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception from Jython:\n" + e, e);
+            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, exceptionFromJython + e, e);
         }
     }
 
@@ -146,7 +147,7 @@ public class JythonEngine extends BSFEngineImpl {
             importPackage(scriptStr);
             interp.exec(scriptStr);
         } catch (final PyException e) {
-            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception from Jython:\n" + e, e);
+            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, exceptionFromJython + e, e);
         }
     }
 
@@ -180,7 +181,7 @@ public class JythonEngine extends BSFEngineImpl {
             }
         } catch (final PyException e) {
             interp.resetbuffer();
-            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception from Jython:\n" + e, e);
+            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, exceptionFromJython + e, e);
         }
     }
 

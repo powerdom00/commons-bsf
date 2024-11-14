@@ -20,7 +20,7 @@ package org.apache.bsf.engines.xslt;
 import java.io.File;
 import java.io.Reader;
 import java.io.StringReader;
-import java.net.URL;
+
 import java.util.Vector;
 
 import javax.xml.transform.Transformer;
@@ -105,35 +105,7 @@ public class XSLTEngine extends BSFEngineImpl {
         final Object srcObj = mgr.lookupBean("xslt:src");
         Object xis = null;
         if (srcObj != null) {
-            if (srcObj instanceof Node) {
-                xis = new DOMSource((Node) srcObj);
-            } else {
-                try {
-                    String mesg = "as anything";
-                    if (srcObj instanceof Reader) {
-                        xis = new StreamSource((Reader) srcObj);
-                        mesg = "as a Reader";
-                    } else if (srcObj instanceof File) {
-                        xis = new StreamSource((File) srcObj);
-                        mesg = "as a file";
-                    } else {
-                        final String srcObjstr = srcObj.toString();
-                        xis = new StreamSource(new StringReader(srcObjstr));
-                        if (srcObj instanceof URL) {
-                            mesg = "as a URL";
-                        } else {
-                            ((StreamSource) xis).setPublicId(srcObjstr);
-                            mesg = "as an XML string";
-                        }
-                    }
-
-                    if (xis == null) {
-                        throw new Exception("Unable to get input from '" + srcObj + "' " + mesg);
-                    }
-                } catch (final Exception e) {
-                    throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "BSF:XSLTEngine: unable to get " + "input from '" + srcObj + "' as XML", e);
-                }
-            }
+            xis=srcTypeCheck(srcObj);
         } else {
             // create an empty document - real src must come into the
             // stylesheet using "doc(...)" [see XSLT spec] or the stylesheet
@@ -160,7 +132,24 @@ public class XSLTEngine extends BSFEngineImpl {
             throw new BSFException(BSFException.REASON_EXECUTION_ERROR, "exception while eval'ing XSLT script" + e, e);
         }
     }
+    public Object srcTypeCheck(Object srcObj){
+        Object xis=null;
+            if (srcObj instanceof Node) {
+                xis = new DOMSource((Node) srcObj);
+            } else {
+                    if (srcObj instanceof Reader) {
+                        xis = new StreamSource((Reader) srcObj);
 
+                    } else if (srcObj instanceof File) {
+                        xis = new StreamSource((File) srcObj);
+
+                    } else {
+                        final String srcObjstr = srcObj.toString();
+                        xis = new StreamSource(new StringReader(srcObjstr));
+                    }
+            }
+        return xis;
+        }
     /**
      * Initialize the engine.
      */

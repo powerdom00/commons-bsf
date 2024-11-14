@@ -408,12 +408,12 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             return false;
         }
     }
-
+    public static final String dashes = "--------------------------------------------------------";
     // for development purposes only (to debug this class on its own)
     public static void main(final String args[]) {
         System.out.println("in BSF_Log ...");
-        System.out.println("--------------------------------------------------------");
-        System.out.println("--------------------------------------------------------");
+        System.out.println(dashes);
+        System.out.println(dashes);
         BSF_Log bl = new BSF_Log();
         dump(bl);
         bl = new BSF_Log(Class.class);
@@ -474,6 +474,6 @@ public class BSF_Log // implements org.apache.commons.logging.Log
         System.out.println("\tisWarn Enabled: " + bl.isWarnEnabled());
 
         System.out.println("\tbl=[" + bl + "] <<<---   <<<---   <<<---");
-        System.out.println("--------------------------------------------------------");
+        System.out.println(dashes);
     }
 }

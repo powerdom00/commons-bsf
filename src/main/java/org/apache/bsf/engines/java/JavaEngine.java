@@ -165,23 +165,7 @@ public class JavaEngine extends BSFEngineImpl {
 
                 // Edit the script to replace placeholder with the generated
                 // classname. Note that this occurs _after_ the cache was checked!
-                int startpoint = script.indexOf(placeholder);
-                int endpoint;
-                if (startpoint >= 0) {
-                    final StringBuilder changed = new StringBuilder();
-                    for (; startpoint >= 0; startpoint = script.indexOf(placeholder, startpoint)) {
-                        changed.setLength(0); // Reset for 2nd pass or later
-                        if (startpoint > 0) {
-                            changed.append(script.substring(0, startpoint));
-                        }
-                        changed.append(classname);
-                        endpoint = startpoint + placeholder.length();
-                        if (endpoint < script.length()) {
-                            changed.append(script.substring(endpoint));
-                        }
-                        script = changed.toString();
-                    }
-                }
+                script = replacePlaceholder(script,classname);
 
                 // MJD - debug
 //              BSFDeclaredBean tempBean;
@@ -253,6 +237,26 @@ public class JavaEngine extends BSFEngineImpl {
             }
         }
         return retval;
+    }
+    public String replacePlaceholder(String script,String classname){
+        int startpoint = script.indexOf(placeholder);
+        int endpoint;
+        if (startpoint >= 0) {
+            final StringBuilder changed = new StringBuilder();
+            for (; startpoint >= 0; startpoint = script.indexOf(placeholder, startpoint)) {
+                changed.setLength(0); // Reset for 2nd pass or later
+                if (startpoint > 0) {
+                    changed.append(script.substring(0, startpoint));
+                }
+                changed.append(classname);
+                endpoint = startpoint + placeholder.length();
+                if (endpoint < script.length()) {
+                    changed.append(script.substring(endpoint));
+                }
+                script = changed.toString();
+            }
+        }
+        return script;
     }
 
     public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {

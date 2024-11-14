@@ -134,18 +134,47 @@ public class EngineUtils {
      *
      * @exception BSFException if something goes wrong
      */
-    public static Object callBeanMethod(final Object bean, final String methodName, final Object[] args) throws BSFException {
-        Class[] argTypes = null;
+    public static Class[] getArgTypes(final Object[] args){
         // determine arg types. note that a null argtype
         // matches any object type
-
+        Class[] argTypes = null;
         if (args != null) {
             argTypes = new Class[args.length];
             for (int i = 0; i < args.length; i++) {
                 argTypes[i] = (args[i] == null) ? null : args[i].getClass();
             }
         }
+        return argTypes;
+    }
+    public static Class getNumberType(Object arg){
+            if (arg instanceof Byte) {
+                return byte.class;
+            } else if (arg instanceof Integer) {
+                return int.class;
+            } else if (arg instanceof Long) {
+                return long.class;
+            } else if (arg instanceof Float) {
+                return float.class;
+            } else if (arg instanceof Double) {
+                return double.class;
+            } else if (arg instanceof Short) {
+                return short.class;
+            }
+            return null;
+    }
+    public static Class checkType(Object arg){
+        if (arg instanceof Number) {
+            return getNumberType(arg);
+        } else if (arg instanceof Boolean) {
+            return boolean.class;
+        } else if (arg instanceof Character) {
+            return char.class;
+        }
+        return null;
+    }
 
+    public static Object callBeanMethod(final Object bean, final String methodName, final Object[] args) throws BSFException {
+        Class[] argTypes = getArgTypes(args);
         // we want to allow a static call to occur on an object, similar
         // to what Java allows. So isStaticOnly is set to false.
         final boolean isStaticOnly = false;
@@ -163,25 +192,7 @@ public class EngineUtils {
                     // if args is null the NullPointerException will get caught
                     // below and the right thing'll happen .. ugly but works
                     for (int i = 0; i < args.length; i++) {
-                        if (args[i] instanceof Number) {
-                            if (args[i] instanceof Byte) {
-                                argTypes[i] = byte.class;
-                            } else if (args[i] instanceof Integer) {
-                                argTypes[i] = int.class;
-                            } else if (args[i] instanceof Long) {
-                                argTypes[i] = long.class;
-                            } else if (args[i] instanceof Float) {
-                                argTypes[i] = float.class;
-                            } else if (args[i] instanceof Double) {
-                                argTypes[i] = double.class;
-                            } else if (args[i] instanceof Short) {
-                                argTypes[i] = short.class;
-                            }
-                        } else if (args[i] instanceof Boolean) {
-                            argTypes[i] = boolean.class;
-                        } else if (args[i] instanceof Character) {
-                            argTypes[i] = char.class;
-                        }
+                        argTypes[i] = checkType(args[i]);
                     }
 
                     m = MethodUtils.getMethod(beanClass, methodName, argTypes, isStaticOnly);

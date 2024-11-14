@@ -135,6 +135,7 @@ public class BSFManager {
 
     static {
         final String strInfo = "org.apache.bsf.BSFManager.dumpEnvironment() [from static{}]";
+        final String loggerBsfStatic="[BSFManager] static {...}";
         try {
             definedClassLoader = BSFManager.class.getClassLoader(); // get defining ClassLoader
 
@@ -179,7 +180,7 @@ public class BSFManager {
             }
         } catch (final IOException ex) {
             final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());
-            logger.debug("[BSFManager] static {...}");
+            logger.debug(loggerBsfStatic);
             logger.error("[BSFManager] Error reading Languages file, exception :", ex);
 
             // TODO: leave in case only a no-op-logger is available or remove next two statements?
@@ -187,7 +188,7 @@ public class BSFManager {
             System.err.println("Error reading Languages file " + ex);
         } catch (final NoSuchElementException nsee) {
             final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());
-            logger.debug("[BSFManager] static {...}");
+            logger.debug(loggerBsfStatic);
             logger.error("[BSFManager] Syntax error in Languages resource bundle, exception :", nsee);
 
             // TODO: leave in case only a no-op-logger is available or remove next two statements?
@@ -195,7 +196,7 @@ public class BSFManager {
             System.err.println("Syntax error in Languages resource bundle");
         } catch (final MissingResourceException mre) {
             final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());
-            logger.debug("[BSFManager] static {...}");
+            logger.debug(loggerBsfStatic);
             logger.error("[BSFManager] Initialization error, exception :", mre);
 
             // TODO: leave in case only a no-op-logger is available or remove next two statements?
@@ -558,6 +559,7 @@ public class BSFManager {
      *
      * @exception BSFException if file's extension is unknown.
      */
+
     public static String getLangFromFilename(final String fileName) throws BSFException {
         final int dotIndex = fileName.lastIndexOf(".");
 
@@ -568,57 +570,72 @@ public class BSFManager {
             int index, loops = 0;
 
             if (langval != null) {
-                final ClassLoader tccl = Thread.currentThread().getContextClassLoader(); // rgf, 2009-09-10
+                lang = findLang(langval);
 
-                while ((index = langval.indexOf(":", 0)) != -1) {
-                    // Great. Multiple language engines registered
-                    // for this extension.
-                    // Try to find first one that is in our classpath.
-                    lang = langval.substring(0, index);
-                    langval = langval.substring(index + 1);
-                    loops++;
-
-                    // Test to see if in classpath
-                    String engineName = null;
-                    try {
-                        engineName = (String) registeredEngines.get(lang);
-
-                        boolean bTryDefinedClassLoader = false;
-                        if (tccl != null) // context CL available, try it first
-                        {
-                            try {
-                                tccl.loadClass(engineName);
-                            } catch (final ClassNotFoundException cnfe) {
-                                bTryDefinedClassLoader = true;
-                            }
-                        }
-
-                        if (bTryDefinedClassLoader || tccl == null) // not found, try defined CL next
-                        {
-                            definedClassLoader.loadClass(engineName);
-                        }
-                    } catch (final ClassNotFoundException cnfe2) {
-                        // Bummer.
-                        lang = langval;
-                        continue;
-                    }
-
-                    // Got past that? Good.
-                    break;
-                }
-                if (loops == 0) {
-                    lang = langval;
+                if (langFound(lang)) {
+                    return lang;
                 }
             }
-
-            if (lang != null && lang != "") {
-                return lang;
-            }
+            throw new BSFException(BSFException.REASON_OTHER_ERROR,
+                    "[BSFManager.getLangFromFilename] file extension missing or unknown: " + "unable to determine language for '" + fileName + "'");
         }
-        throw new BSFException(BSFException.REASON_OTHER_ERROR,
-                "[BSFManager.getLangFromFilename] file extension missing or unknown: " + "unable to determine language for '" + fileName + "'");
+        return null;
+    }
+    public static String findLang(String langval){
+        final ClassLoader tccl = Thread.currentThread().getContextClassLoader(); // rgf, 2009-09-10
+        String lang=null;
+        int index, loops = 0;
+        while ((index = langval.indexOf(":", 0)) != -1) {
+            // Great. Multiple language engines registered
+            // for this extension.
+            // Try to find first one that is in our classpath.
+            lang = langval.substring(0, index);
+            langval = langval.substring(index + 1);
+            loops++;
+
+            // Test to see if in classpath
+            String engineName = null;
+            try {
+
+                engineName = (String) registeredEngines.get(lang);
+                boolean bTryDefinedClassLoader = isClAvailable(tccl,engineName);
+
+                if (classLoaderFound(bTryDefinedClassLoader,tccl)) // not found, try defined CL next
+                {
+                    definedClassLoader.loadClass(engineName);
+                }
+            } catch (final ClassNotFoundException cnfe2) {
+                // Bummer.
+                lang = langval;
+                continue;
+            }
+
+            // Got past that? Good.
+            break;
+        }
+        if (loops == 0) {
+            lang = langval;
+        }
+        return lang;
     }
 
+    public static boolean isClAvailable(ClassLoader tccl, String engineName){
+        if (tccl != null) // context CL available, try it first
+        {
+            try {
+                tccl.loadClass(engineName);
+            } catch (final ClassNotFoundException cnfe) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public static boolean classLoaderFound (boolean bTryDefinedClassLoader,ClassLoader tccl){
+        return bTryDefinedClassLoader || tccl == null;
+    }
+    public static boolean langFound (String lang){
+        return (lang != null && !lang.isEmpty());
+    }
     /**
      * Return the current object registry of the manager.
      *

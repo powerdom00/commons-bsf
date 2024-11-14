@@ -91,55 +91,55 @@ public class Main {
 
             final BSFManager mgr = new BSFManager();
             final String mode = (String) argsTable.get(ARG_MODE);
+            switch(mode){
+                case ARG_VAL_COMPILE:
+                    final String outClassName = (String) argsTable.get(ARG_OUT);
+                    final FileWriter out = new FileWriter(outClassName + ".java");
+                    final PrintWriter pw = new PrintWriter(out);
 
-            if (mode.equals(ARG_VAL_COMPILE)) {
-                final String outClassName = (String) argsTable.get(ARG_OUT);
-                final FileWriter out = new FileWriter(outClassName + ".java");
-                final PrintWriter pw = new PrintWriter(out);
-
-                final CodeBuffer cb = new CodeBuffer();
-                cb.setClassName(outClassName);
-                mgr.compileScript(language, inFileName, 0, 0, IOUtils.getStringFromReader(in), cb);
-                cb.print(pw, true);
-                out.close();
-            } else {
-                if (mode.equals(ARG_VAL_EXEC)) {
+                    final CodeBuffer cb = new CodeBuffer();
+                    cb.setClassName(outClassName);
+                    mgr.compileScript(language, inFileName, 0, 0, IOUtils.getStringFromReader(in), cb);
+                    cb.print(pw, true);
+                    out.close();
+                    break;
+                case ARG_VAL_EXEC:
                     mgr.exec(language, inFileName, 0, 0, IOUtils.getStringFromReader(in));
-                } else { /* eval */
+                    break;
+                default:
+                /* eval */
                     final Object obj = mgr.eval(language, inFileName, 0, 0, IOUtils.getStringFromReader(in));
-
+                    checkJavaAwtComponent(obj,inFileName);
                     // Try to display the result.
-
-                    if (obj instanceof java.awt.Component) {
-                        Frame f;
-                        if (obj instanceof Frame) {
-                            f = (Frame) obj;
-                        } else {
-                            f = new Frame("BSF Result: " + inFileName);
-                            f.add((java.awt.Component) obj);
-                        }
-                        // Add a window listener to quit on closing.
-                        f.addWindowListener(new WindowAdapter() {
-                            public void windowClosing(final WindowEvent e) {
-                                System.exit(0);
-                            }
-                        });
-                        f.pack();
-                        // f.show(); // javac 1.5 warns to use f.show(), Apache build scripts abort as a result :(
-                        f.setVisible(true); // available since Java 1.1
-                    } else {
-                        System.err.println("Result: " + obj);
-
-                    }
-
                     System.err.println("Result: " + obj);
-                }
-            }
+                    }
         } catch (final BSFException e) {
             e.printStackTrace();
         }
     }
+    public static void checkJavaAwtComponent(Object obj,String inFileName){
+        if (obj instanceof java.awt.Component) {
+            Frame f;
+            if (obj instanceof Frame) {
+                f = (Frame) obj;
+            } else {
+                f = new Frame("BSF Result: " + inFileName);
+                f.add((java.awt.Component) obj);
+            }
+            // Add a window listener to quit on closing.
+            f.addWindowListener(new WindowAdapter() {
+                public void windowClosing(final WindowEvent e) {
+                    System.exit(0);
+                }
+            });
+            f.pack();
+            // f.show(); // javac 1.5 warns to use f.show(), Apache build scripts abort as a result :(
+            f.setVisible(true); // available since Java 1.1
+        } else {
+            System.err.println("Result: " + obj);
 
+        }
+    }
     private static void printHelp() {
         System.err.println("Usage:");
         System.err.println();
