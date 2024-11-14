@@ -106,6 +106,8 @@ class BSFCommand implements Command {
                     throw new TclException(TCL.ERROR);
                 }
                 break;
+            default:
+                throw new TclException(TCL.ERROR);
         }
     }
 }

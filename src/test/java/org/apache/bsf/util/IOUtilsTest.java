@@ -33,7 +33,7 @@ import junit.framework.TestCase;
 
 public class IOUtilsTest extends TestCase {
 
-    static private final String lineSeparator = System.getProperty("line.separator", "/n");
+    static final String LINE_SEPARATOR = System.getProperty("line.separator", "/n");
 
     public IOUtilsTest(final String name) {
         super(name);
@@ -50,7 +50,7 @@ public class IOUtilsTest extends TestCase {
         final StringReader sr = new StringReader(sw.toString());
         result = IOUtils.getStringFromReader(sr);
 
-        assertTrue(result.equals(("IOUtilsTest" + lineSeparator)));
+        assertTrue(result.equals(("IOUtilsTest" + LINE_SEPARATOR)));
 
         final File myFile = File.createTempFile("Test", "txt");
 
@@ -62,6 +62,6 @@ public class IOUtilsTest extends TestCase {
         final FileReader fr = new FileReader(myFile);
         result = IOUtils.getStringFromReader(fr);
 
-        assertTrue(result.equals(("file name : Test.txt" + lineSeparator)));
+        assertTrue(result.equals(("file name : Test.txt" + LINE_SEPARATOR)));
     }
 }

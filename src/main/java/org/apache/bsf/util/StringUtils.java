@@ -35,8 +35,8 @@ import java.util.Vector;
  * Deals with strings (probably need to elaborate some more).
  */
 public class StringUtils {
-    public static final String lineSeparator = System.getProperty("line.separator", "\n");
-    public static final String lineSeparatorStr = cleanString(lineSeparator);
+    public static final String LINE_SEPARATOR = System.getProperty("line.separator", "\n");
+    public static final String LINE_SEPARATOR_STR = cleanString(LINE_SEPARATOR);
 
     public static String classNameToVarName(String className) {
         // Might represent an array.
@@ -181,7 +181,7 @@ public class StringUtils {
         try {
             while ((tempLine = in.readLine()) != null) {
                 if (previousLine != null) {
-                    strBuf.append("\"" + previousLine + lineSeparatorStr + "\" +" + lineSeparator);
+                    strBuf.append("\"" + previousLine + LINE_SEPARATOR_STR + "\" +" + LINE_SEPARATOR);
                 }
 
                 previousLine = cleanString(tempLine);
@@ -189,7 +189,7 @@ public class StringUtils {
         } catch (final IOException e) {
         }
 
-        strBuf.append("\"" + (previousLine != null ? previousLine : "") + "\"" + lineSeparator);
+        strBuf.append("\"" + (previousLine != null ? previousLine : "") + "\"" + LINE_SEPARATOR);
 
         return strBuf.toString();
     }

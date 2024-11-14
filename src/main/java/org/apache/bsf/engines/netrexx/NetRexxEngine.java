@@ -78,10 +78,10 @@ public class NetRexxEngine extends BSFEngineImpl
 {
     BSFFunctions mgrfuncs;
     static Hashtable codeToClass=new Hashtable();
-    static final String serializeCompilation="";
+    static final String SERIALIZE_COMPILATION="";
     static String placeholder="$$CLASSNAME$$";
     String minorPrefix;
-    static final String logClass=".class";
+    static final String LOGCLASS=".class";
     // private Log logger = LogFactory.getLog(this.getClass().getName());
     private BSF_Log logger;
 
@@ -246,30 +246,6 @@ public class NetRexxEngine extends BSFEngineImpl
             file.delete();
         }
     }
-    public String editScript(String script,String classname){
-        // Edit the script to replace placeholder with the generated
-        // classname. Note that this occurs _after_ the cache was
-        // checked!
-        int startpoint,endpoint;
-        if((startpoint=script.indexOf(placeholder))>=0)
-        {
-            StringBuffer changed=new StringBuffer();
-            for(;
-                startpoint>=0;
-                startpoint=script.indexOf(placeholder,startpoint))
-            {
-                changed.setLength(0);   // Reset for 2nd pass or later
-                if(startpoint>0)
-                    changed.append(script.substring(0,startpoint));
-                changed.append(classname);
-                endpoint=startpoint+placeholder.length();
-                if(endpoint<script.length())
-                    changed.append(script.substring(endpoint));
-                script=changed.toString();
-            }
-        }
-        return script;
-    }
     public void cleanFile(String classname){
         if (classname!=null){
         // Generated src
@@ -298,7 +274,7 @@ public class NetRexxEngine extends BSFEngineImpl
                                 return
                                         (0==name.indexOf(minorPrefix))
                                                 &&
-                                                (name.lastIndexOf(logClass)==name.length()-6)
+                                                (name.lastIndexOf(LOGCLASS)==name.length()-6)
                                         ;
                             }
                         }
@@ -348,7 +324,7 @@ public class NetRexxEngine extends BSFEngineImpl
         int retValue;
 
         // May not be threadsafe. Serialize access on static object:
-        synchronized(serializeCompilation)
+        synchronized(SERIALIZE_COMPILATION)
         {
             // compile to a .java file
             retValue =
@@ -410,7 +386,7 @@ public class NetRexxEngine extends BSFEngineImpl
                             // classname. Note that this occurs _after_ the cache was
                             // checked!
 
-                            script=editScript(script,classname);
+                            script=EngineUtils.replacePlaceholder(script,classname,placeholder);
 
                             writeGeneratedFile(returnsObject,script,gf);
 

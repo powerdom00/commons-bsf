@@ -26,17 +26,17 @@ package org.apache.bsf.util.event.generator;
  */
 public class Bytecode {
     // Constant Pool Item Codes
-    public static final byte C_Utf8 = 0x01; // 1
-    public static final byte C_Integer = 0x03; // 3
-    public static final byte C_Float = 0x04; // 4
-    public static final byte C_Long = 0x05; // 5
-    public static final byte C_Double = 0x06; // 6
-    public static final byte C_Class = 0x07; // 7
-    public static final byte C_String = 0x08; // 8
-    public static final byte C_FieldRef = 0x09; // 9
-    public static final byte C_MethodRef = 0x0A; // 10
-    public static final byte C_InterfaceMethodRef = 0x0B; // 11
-    public static final byte C_NameAndType = 0x0C; // 12
+    public static final byte C_UTF8 = 0x01; // 1
+    public static final byte C_INTEGER = 0x03; // 3
+    public static final byte C_FLOAT = 0x04; // 4
+    public static final byte C_LONG = 0x05; // 5
+    public static final byte C_DOUBLE = 0x06; // 6
+    public static final byte C_CLASS = 0x07; // 7
+    public static final byte C_STRING = 0x08; // 8
+    public static final byte C_FIELD_REF = 0x09; // 9
+    public static final byte C_METHOD_REF = 0x0A; // 10
+    public static final byte C_INTERFACE_METHOD_REF = 0x0B; // 11
+    public static final byte C_NAME_AND_TYPE = 0x0C; // 12
 
 //public static byte[] addDouble(byte[] array,double value)
 //{
@@ -46,21 +46,21 @@ public class Bytecode {
 //}
 
     public static byte[] addClass(final byte[] array, final short value) {
-        return addRef(C_Class, array, value);
+        return addRef(C_CLASS, array, value);
     }
 
     public static byte[] addFieldRef(final byte[] array, final short value1, final short value2) {
-        return addRef(C_FieldRef, array, value1, value2);
+        return addRef(C_FIELD_REF, array, value1, value2);
     }
 
     public static byte[] addInteger(byte[] array, final int value) {
-        array = ByteUtility.addBytes(array, C_Integer);
+        array = ByteUtility.addBytes(array, C_INTEGER);
         array = ByteUtility.addBytes(array, value);
         return array;
     }
 
     public static byte[] addInterfaceMethodRef(final byte[] array, final short value1, final short value2) {
-        return addRef(C_InterfaceMethodRef, array, value1, value2);
+        return addRef(C_INTERFACE_METHOD_REF, array, value1, value2);
     }
 //public static byte[] addFloat(byte[] array,float value)
 //{
@@ -70,17 +70,17 @@ public class Bytecode {
 //}
 
     public static byte[] addLong(byte[] array, final long value) {
-        array = ByteUtility.addBytes(array, C_Long);
+        array = ByteUtility.addBytes(array, C_LONG);
         array = ByteUtility.addBytes(array, value);
         return array;
     }
 
     public static byte[] addMethodRef(final byte[] array, final short value1, final short value2) {
-        return addRef(C_MethodRef, array, value1, value2);
+        return addRef(C_METHOD_REF, array, value1, value2);
     }
 
     public static byte[] addNameAndType(final byte[] array, final short value1, final short value2) {
-        return addRef(C_NameAndType, array, value1, value2);
+        return addRef(C_NAME_AND_TYPE, array, value1, value2);
     }
 
     public static byte[] addRef(final byte refType, byte[] array, final short value) {
@@ -98,12 +98,12 @@ public class Bytecode {
     }
 
     public static byte[] addString(final byte[] array, final short value) {
-        return addRef(C_String, array, value);
+        return addRef(C_STRING, array, value);
     }
 
     // Constant Pool Item Methods
     public static byte[] addUtf8(byte[] array, final String value) {
-        array = ByteUtility.addBytes(array, C_Utf8);
+        array = ByteUtility.addBytes(array, C_UTF8);
         array = ByteUtility.addBytes(array, (short) value.length());
         array = ByteUtility.addBytes(array, value);
         return array;

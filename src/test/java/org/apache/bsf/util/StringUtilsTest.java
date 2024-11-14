@@ -34,7 +34,7 @@ import junit.framework.TestCase;
  */
 public class StringUtilsTest extends TestCase {
 
-    static private final String lineSeparator = System.getProperty("line.separator", "\n");
+    static final String LINE_SEPARATOR = System.getProperty("line.separator", "\n");
 
     /**
      * Constructor for StringUtilsTest.
@@ -150,7 +150,7 @@ public class StringUtilsTest extends TestCase {
         pw.flush();
 
         result = StringUtils.getContentAsString(myFile.toURL());
-        assertTrue(result.equals(("file name : Test.txt" + lineSeparator)));
+        assertTrue(result.equals(("file name : Test.txt" + LINE_SEPARATOR)));
 
     }
 
@@ -158,22 +158,22 @@ public class StringUtilsTest extends TestCase {
         String result;
 
         result = StringUtils.getSafeString("test-string");
-        assertTrue(result.equals(("\"test-string\"" + lineSeparator)));
+        assertTrue(result.equals(("\"test-string\"" + LINE_SEPARATOR)));
         // checks for an empty string ..
         result = StringUtils.getSafeString("");
-        assertTrue(result.equals(("\"\"" + lineSeparator)));
+        assertTrue(result.equals(("\"\"" + LINE_SEPARATOR)));
 
         result = StringUtils.getSafeString("\n");
-        assertTrue(result.equals(("\"\"" + lineSeparator)));
+        assertTrue(result.equals(("\"\"" + LINE_SEPARATOR)));
 
         result = StringUtils.getSafeString("\r");
-        assertTrue(result.equals(("\"\"" + lineSeparator)));
+        assertTrue(result.equals(("\"\"" + LINE_SEPARATOR)));
 
         result = StringUtils.getSafeString("\\n");
-        assertTrue(result.equals(("\"\\\\n\"" + lineSeparator)));
+        assertTrue(result.equals(("\"\\\\n\"" + LINE_SEPARATOR)));
 
         result = StringUtils.getSafeString("\\r");
-        assertTrue(result.equals(("\"\\\\r\"" + lineSeparator)));
+        assertTrue(result.equals(("\"\\\\r\"" + LINE_SEPARATOR)));
 
     }
 

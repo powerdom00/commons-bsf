@@ -372,4 +372,24 @@ public class EngineUtils {
 
         throw new BSFException(BSFException.REASON_OTHER_ERROR, "[EngineUtils.loadClass()] unable to load class '" + name + "'");
     }
+    public static String replacePlaceholder(String script,String classname,String placeholder){
+        int startpoint = script.indexOf(placeholder);
+        int endpoint;
+        if (startpoint >= 0) {
+            final StringBuilder changed = new StringBuilder();
+            for (; startpoint >= 0; startpoint = script.indexOf(placeholder, startpoint)) {
+                changed.setLength(0); // Reset for 2nd pass or later
+                if (startpoint > 0) {
+                    changed.append(script.substring(0, startpoint));
+                }
+                changed.append(classname);
+                endpoint = startpoint + placeholder.length();
+                if (endpoint < script.length()) {
+                    changed.append(script.substring(endpoint));
+                }
+                script = changed.toString();
+            }
+        }
+        return script;
+    }
 }

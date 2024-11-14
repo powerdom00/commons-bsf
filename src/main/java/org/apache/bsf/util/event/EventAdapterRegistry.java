@@ -44,8 +44,8 @@ import org.apache.bsf.BSFManager;
 public class EventAdapterRegistry {
     private static final Hashtable reg = new Hashtable();
     private static ClassLoader cl;
-    private static final String adapterPackage = "org.apache.bsf.util.event.adapters";
-    private static final String adapterSuffix = "Adapter";
+    private static final String ADAPTER_PACKAGE = "org.apache.bsf.util.event.adapters";
+    private static final String ADAPTER_SUFFIX = "Adapter";
     private static boolean dynamic = true;
 
     public static Class lookup(final Class listenerType) {
@@ -54,7 +54,7 @@ public class EventAdapterRegistry {
 
         if (adapterClass == null) {
             final String en = key.substring(0, key.lastIndexOf("Listener"));
-            final String cn = adapterPackage + "." + en + adapterSuffix;
+            final String cn = ADAPTER_PACKAGE + "." + en + ADAPTER_SUFFIX;
 
             if (adapterClass == null) { // get Thread's context class loader
                 final ClassLoader tccl = Thread.currentThread().getContextClassLoader();

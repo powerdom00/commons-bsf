@@ -69,7 +69,7 @@ public abstract class BSFEngineImpl implements BSFEngine {
 
         String evalString = bsfInfo.objName + ".eval(\"" + lang + "\", ";
         evalString += "request.getRequestURI(), " + lineNo + ", " + columnNo;
-        evalString += "," + StringUtils.lineSeparator;
+        evalString += "," + StringUtils.LINE_SEPARATOR;
         evalString += StringUtils.getSafeString(expr.toString()) + ")";
 
         final ObjInfo oldRet = cb.getFinalServiceMethodStatement();
@@ -97,7 +97,7 @@ public abstract class BSFEngineImpl implements BSFEngine {
 
         String execString = bsfInfo.objName + ".exec(\"" + lang + "\", ";
         execString += "request.getRequestURI(), " + lineNo + ", " + columnNo;
-        execString += "," + StringUtils.lineSeparator;
+        execString += "," + StringUtils.LINE_SEPARATOR;
         execString += StringUtils.getSafeString(script.toString()) + ")";
 
         final ObjInfo oldRet = cb.getFinalServiceMethodStatement();

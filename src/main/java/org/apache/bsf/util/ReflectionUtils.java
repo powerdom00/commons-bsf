@@ -327,14 +327,14 @@ public class ReflectionUtils {
      * @exception IllegalAccessException    if read method is not accessible
      * @exception InvocationTargetException if read method excepts
      */
-    public static final String propertyEc="property '";
+    public static final String PROPERTYEC="property '";
     public static Bean getProperty(final Object target, final String propName, final Integer index)
             throws IntrospectionException, IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         // find the property descriptor
         final BeanInfo bi = Introspector.getBeanInfo(target.getClass());
         final PropertyDescriptor pd = (PropertyDescriptor) findFeatureByName("property", propName, bi.getPropertyDescriptors());
         if (pd == null) {
-            throw new IllegalArgumentException(propertyEc + propName + "' is " + "unknown for '" + target + "'");
+            throw new IllegalArgumentException(PROPERTYEC + propName + "' is " + "unknown for '" + target + "'");
         }
 
         // get read method and type of property
@@ -343,7 +343,7 @@ public class ReflectionUtils {
         if (index != null) {
             // if index != null, then property is indexed - pd better be so too
             if (!(pd instanceof IndexedPropertyDescriptor)) {
-                throw new IllegalArgumentException("attempt to get non-indexed " + propertyEc + propName + "' as being indexed");
+                throw new IllegalArgumentException("attempt to get non-indexed " + PROPERTYEC + propName + "' as being indexed");
             }
             final IndexedPropertyDescriptor ipd = (IndexedPropertyDescriptor) pd;
             rm = ipd.getIndexedReadMethod();
@@ -354,7 +354,7 @@ public class ReflectionUtils {
         }
 
         if (rm == null) {
-            throw new IllegalArgumentException(propertyEc + propName + "' is not readable");
+            throw new IllegalArgumentException(PROPERTYEC + propName + "' is not readable");
         }
 
         // now get the value
@@ -425,7 +425,7 @@ public class ReflectionUtils {
         final BeanInfo bi = Introspector.getBeanInfo(target.getClass());
         final PropertyDescriptor pd = (PropertyDescriptor) findFeatureByName("property", propName, bi.getPropertyDescriptors());
         if (pd == null) {
-            throw new IllegalArgumentException(propertyEc + propName + "' is " + "unknown for '" + target + "'");
+            throw new IllegalArgumentException(PROPERTYEC + propName + "' is " + "unknown for '" + target + "'");
         }
 
         // get write method and type of property
@@ -434,7 +434,7 @@ public class ReflectionUtils {
         if (index != null) {
             // if index != null, then property is indexed - pd better be so too
             if (!(pd instanceof IndexedPropertyDescriptor)) {
-                throw new IllegalArgumentException("attempt to set non-indexed " + propertyEc + propName + "' as being indexed");
+                throw new IllegalArgumentException("attempt to set non-indexed " + PROPERTYEC + propName + "' as being indexed");
             }
             final IndexedPropertyDescriptor ipd = (IndexedPropertyDescriptor) pd;
             wm = ipd.getIndexedWriteMethod();
@@ -445,7 +445,7 @@ public class ReflectionUtils {
         }
 
         if (wm == null) {
-            throw new IllegalArgumentException(propertyEc + propName + "' is not writeable");
+            throw new IllegalArgumentException(PROPERTYEC + propName + "' is not writeable");
         }
 
         // type convert the value if necessary
