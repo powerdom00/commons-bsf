@@ -283,6 +283,7 @@ public class BSFManager {
      *
      * @exception BSFException if anything goes wrong while running the script
      */
+    static final String BSF_EXCEPTION_MSG = "[BSFManager] Exception :";
     public void compileApply(final String lang, final String source, final int lineNo, final int columnNo, final Object funcBody, final Vector paramNames,
             final Vector arguments, final CodeBuffer cb) throws BSFException {
         logger.debug("BSFManager:compileApply");
@@ -304,7 +305,7 @@ public class BSFManager {
             });
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG, prive);
             throw (BSFException) prive.getException();
         }
     }
@@ -340,7 +341,7 @@ public class BSFManager {
             });
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG, prive);
             throw (BSFException) prive.getException();
         }
     }
@@ -376,7 +377,7 @@ public class BSFManager {
             });
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG, prive);
             throw (BSFException) prive.getException();
         }
     }
@@ -487,7 +488,7 @@ public class BSFManager {
             });
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG, prive);
             throw (BSFException) prive.getException();
         }
     }
@@ -520,7 +521,7 @@ public class BSFManager {
             });
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG , prive);
             throw (BSFException) prive.getException();
         }
     }
@@ -543,7 +544,7 @@ public class BSFManager {
                 classPath = System.getProperty("java.class.path");
             } catch (final Throwable t) {
 
-                logger.debug("[BSFManager] Exception :", t);
+                logger.debug(BSF_EXCEPTION_MSG, t);
                 // prolly a security exception .. so no can do
             }
         }
@@ -728,11 +729,11 @@ public class BSFManager {
             return eng;
         } catch (final PrivilegedActionException prive) {
 
-            logger.error("[BSFManager] Exception :", prive);
+            logger.error(BSF_EXCEPTION_MSG, prive);
             throw (BSFException) prive.getException();
         } catch (final Throwable t) {
 
-            logger.error("[BSFManager] Exception :", t);
+            logger.error(BSF_EXCEPTION_MSG, t);
             throw new BSFException(BSFException.REASON_OTHER_ERROR, "[BSFManager.loadScriptingEngine()] unable to load language: " + lang, t);
         }
     }
@@ -751,7 +752,7 @@ public class BSFManager {
             return ((BSFDeclaredBean) objectRegistry.lookup(beanName)).bean;
         } catch (final IllegalArgumentException e) {
 
-            logger.debug("[BSFManager] Exception :", e);
+            logger.debug(BSF_EXCEPTION_MSG, e);
             return null;
         }
     }
