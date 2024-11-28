@@ -17,6 +17,7 @@
 
 package org.apache.bsf.util;
 
+import org.apache.bsf.BSFException;
 import org.apache.bsf.BSF_Log;
 import org.apache.bsf.BSF_LogFactory;
 
@@ -32,7 +33,7 @@ public class JavaUtils {
         logger = BSF_LogFactory.getLog((org.apache.bsf.util.JavaUtils.class).getName());
     }
 
-    public static boolean JDKcompile(final String fileName, final String classPath) {
+    public static boolean JDKcompile(final String fileName, final String classPath) throws BSFException {
         final String option = (logger.isDebugEnabled()) ? "-g" : "-O";
         final String[] args = { "javac", option, "-classpath", classPath, fileName };
 

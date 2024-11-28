@@ -22,13 +22,13 @@ import java.lang.reflect.*;
 /**
  * This class is used in BSF for logging (a delegator for <em>org.apache.commons.logging</em>, which is needed for compilation) using the
  * <code>org.apache.commons.logging.Log</code> methods.
- * 
+ *
  * Therefore this class implements all the <code>org.apache.commons.logging.Log</code> methods. If <code>org.apache.commons.logging.LogFactory</code> is
  * available, then this class is used to get an <code>org.apache.commons.logging.Log</code> instance to which to forward the message.
- * 
+ *
  * Therefore, if Apache's common logging is available, then it is employed. If Apache's commons logging is <em>not</em> available then a <em>no-op</em> behavior
  * is employed, modelled after <code>org.apache.commons.logging.impl.NoOpLog</code>.
- * 
+ *
  */
 
 /*
@@ -325,7 +325,7 @@ public class BSF_Log // implements org.apache.commons.logging.Log
         }
     }
 
-    public boolean isDebugEnabled() {
+    public boolean isDebugEnabled() throws BSFException {
         if (oac_logger == null) {
             return false;
         } // no org.apache.commons.logging.Log object ?
@@ -334,12 +334,11 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isDebugEnabled();
             return ((Boolean) meths[IS_DEBUG_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
-            return false;
+            throw new BSFException("IS_DEBUG_EXCEPTION");
         }
     }
 
-    public boolean isErrorEnabled() {
+    public boolean isErrorEnabled() throws BSFException {
         if (oac_logger == null) {
             return false; // no org.apache.commons.logging.Log object ?
         }
@@ -348,12 +347,11 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isErrorEnabled();
             return ((Boolean) meths[IS_ERROR_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
-            return false;
+            throw new BSFException("IS_ERROR_EXCEPTION");
         }
     }
 
-    public boolean isFatalEnabled() {
+    public boolean isFatalEnabled() throws BSFException {
         if (oac_logger == null) {
             return false; // no org.apache.commons.logging.Log object ?
         }
@@ -362,12 +360,11 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isFatalEnabled();
             return ((Boolean) meths[IS_FATAL_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
-            return false;
+            throw new BSFException("IS_FATAL_EXCEPTION");
         }
     }
 
-    public boolean isInfoEnabled() {
+    public boolean isInfoEnabled() throws BSFException {
         if (oac_logger == null) {
             return false; // no org.apache.commons.logging.Log object ?
         }
@@ -376,12 +373,11 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isInfoEnabled();
             return ((Boolean) meths[IS_INFO_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
-            return false;
+            throw new BSFException("IS_INFO_EXCEPTION");
         }
     }
 
-    public boolean isTraceEnabled() {
+    public boolean isTraceEnabled() throws BSFException {
         if (oac_logger == null) {
             return false; // no org.apache.commons.logging.Log object ?
         }
@@ -390,12 +386,11 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isTraceEnabled();
             return ((Boolean) meths[IS_TRACE_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
-            return false;
+            throw new BSFException("IS_TRACE_EXCEPTION");
         }
     }
 
-    public boolean isWarnEnabled() {
+    public boolean isWarnEnabled() throws BSFException {
         if (oac_logger == null) {
             return false; // no org.apache.commons.logging.Log object ?
         }
@@ -404,26 +399,31 @@ public class BSF_Log // implements org.apache.commons.logging.Log
             // return ((org.apache.commons.logging.Log) oac_logger).isWarnEnabled();
             return ((Boolean) meths[IS_WARN_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();
         } catch (final Exception e) {
-        } finally {
+            //throw new BSFException("IS_WARN_EXCEPTION");
             return false;
         }
     }
     public static final String DASHES = "--------------------------------------------------------";
     // for development purposes only (to debug this class on its own)
     public static void main(final String args[]) {
-        System.out.println("in BSF_Log ...");
-        System.out.println(DASHES);
-        System.out.println(DASHES);
-        BSF_Log bl = new BSF_Log();
-        dump(bl);
-        bl = new BSF_Log(Class.class);
-        dump(bl);
-        bl = new BSF_Log("Rony was here...");
-        dump(bl);
+        try {
+            System.out.println("in BSF_Log ...");
+            System.out.println(DASHES);
+            System.out.println(DASHES);
+            BSF_Log bl = new BSF_Log();
+            dump(bl);
+            bl = new BSF_Log(Class.class);
+            dump(bl);
+            bl = new BSF_Log("Rony was here...");
+            dump(bl);
+        }
+        catch(BSFException e){
+            System.err.println(e.getMessage());
+        }
 
     }
 
-    static void dump(final BSF_Log bl) {
+    static void dump(final BSF_Log bl) throws BSFException {
         System.out.println("\n\tbl=[" + bl + "] --->>>   --->>>   --->>>");
         System.err.print("/debug **/");
         bl.debug("debug message. ");
@@ -465,15 +465,14 @@ public class BSF_Log // implements org.apache.commons.logging.Log
         bl.warn("warn  message. ", t);
         System.err.println("\\** warn .\\");
         System.err.println();
-
         System.out.println("\tisDebugEnabled: " + bl.isDebugEnabled());
         System.out.println("\tisErrorEnabled: " + bl.isErrorEnabled());
         System.out.println("\tisFatalEnabled: " + bl.isFatalEnabled());
         System.out.println("\tisInfo Enabled: " + bl.isInfoEnabled());
         System.out.println("\tisTraceEnabled: " + bl.isTraceEnabled());
         System.out.println("\tisWarn Enabled: " + bl.isWarnEnabled());
-
         System.out.println("\tbl=[" + bl + "] <<<---   <<<---   <<<---");
         System.out.println(DASHES);
     }
 }
+
