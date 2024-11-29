@@ -455,9 +455,9 @@ private GeneratedFile openUniqueFile(String directory,String prefix,String suffi
         GeneratedFile gf=null;
         int i;
         String className = null;
-        for(i=max,++uniqueFileOffset;
+        for(i=max,++NetRexxEngine.uniqueFileOffset;
             fos==null && i>0;
-            --i,++uniqueFileOffset)
+            --i,++NetRexxEngine.uniqueFileOffset)
         {
             // Probably a timing hazard here... ***************
             try

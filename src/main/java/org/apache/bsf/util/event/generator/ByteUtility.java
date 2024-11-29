@@ -249,6 +249,8 @@ public class ByteUtility {
         case 15:
             temp = "F";
             break;
+            default:
+                throw new IllegalArgumentException("Unexpected value: " + ((value & 0xF0) >> 4));
         }
         switch ((value & 0x0F)) {
         case 0:
@@ -299,6 +301,8 @@ public class ByteUtility {
         case 15:
             temp += "F";
             break;
+            default:
+                throw new IllegalArgumentException("Unexpected value: " + ((value & 0xF0) >> 4));
         }
         return temp;
     }

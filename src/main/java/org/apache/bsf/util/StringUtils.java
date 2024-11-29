@@ -134,6 +134,7 @@ public class StringUtils {
     /*
      * Returns a Reader for reading from the specified resource, if the resource points to a stream.
      */
+    public static final String FILE_NOT_FOUND = "This file was not found: ";
     public static Reader getContentAsReader(final URL url) throws SecurityException, IllegalArgumentException, IOException {
         if (url == null) {
             throw new IllegalArgumentException("URL cannot be null.");
@@ -161,7 +162,7 @@ public class StringUtils {
         } catch (final SecurityException e) {
             throw new SecurityException("Your JVM's SecurityManager has disallowed this.");
         } catch (final FileNotFoundException e) {
-            throw new FileNotFoundException("This file was not found: " + url);
+            throw new FileNotFoundException(FILE_NOT_FOUND + url);
         }
     }
 
@@ -212,7 +213,7 @@ public class StringUtils {
             try {
                 url.openStream();
             } catch (final IOException ioe1) {
-                throw new MalformedURLException("This file was not found: " + url);
+                throw new MalformedURLException(FILE_NOT_FOUND + url);
             }
         } catch (final MalformedURLException e1) {
             url = new URL("file", "", spec);
@@ -229,7 +230,7 @@ public class StringUtils {
                     }
                 }
 
-                throw new MalformedURLException("This file was not found: " + url);
+                throw new MalformedURLException(FILE_NOT_FOUND + url);
             }
         }
 
@@ -357,6 +358,8 @@ public class StringUtils {
         case 'L':
             classNameBuf.append(classNameChars, i, classNameChars.length - i - 1);
             break;
+            default:
+                throw new IllegalArgumentException("Unexpected character: " + classNameChars[i - 1]);
         }
 
         for (i = 0; i < arrayDim; i++) {

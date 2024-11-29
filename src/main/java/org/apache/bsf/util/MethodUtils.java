@@ -54,7 +54,9 @@ public class MethodUtils {
             } else {
                 final Class[] newargs = entryGetParameterTypes(newEntry);
                 boolean keep = true;
-                for (final Enumeration e = elements(); keep & e.hasMoreElements();) {
+                final Enumeration e = elements();
+                boolean moreElements = e.hasMoreElements();
+                while (keep && moreElements) {
                     final Object oldEntry = e.nextElement();
                     // CAVEAT: Implicit references to enclosing class!
                     final Class[] oldargs = entryGetParameterTypes(oldEntry);
@@ -64,6 +66,7 @@ public class MethodUtils {
                         keep = false; // Old more specific; discard new
                         // Else they're tied. Keep both and hope someone beats both.
                     }
+                    moreElements = e.hasMoreElements();
                 }
                 if (keep) {
                     addElement(newEntry);
