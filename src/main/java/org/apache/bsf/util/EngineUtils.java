@@ -236,17 +236,19 @@ public class EngineUtils {
      *
      * @exception BSFException if something goes wrong (@see org.apache.cs.util.MethodUtils for the real exceptions that can occur).
      */
-    public static Object createBean(final String className, final Object args[]) throws BSFException {
-        Bean obj;
+    public static Class[] checkAndSetTypesArg(final Object args[]){
         Class[] argTypes = null;
-
         if (args != null) {
             argTypes = new Class[args.length];
             for (int i = 0; i < args.length; i++) {
                 argTypes[i] = (args[i] != null) ? args[i].getClass() : null;
             }
         }
-
+        return argTypes;
+    }
+    public static Object createBean(final String className, final Object args[]) throws BSFException {
+        Bean obj;
+        Class[] argTypes = checkAndSetTypesArg(args);
         try {
             try {
                 obj = ReflectionUtils.createBean(null, className, argTypes, args);

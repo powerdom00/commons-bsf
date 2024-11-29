@@ -194,7 +194,9 @@ public class NetRexxEngine extends BSFEngineImpl
         }
         return retval;
     }
-    public void declareBean (BSFDeclaredBean bean) throws BSFException {}
+    public void declareBean (BSFDeclaredBean bean) throws BSFException {
+        throw new UnsupportedOperationException("This operation is not supported.");
+    }
     /**
      * Override impl of execute. In NetRexx, methods which do not wish
      * to return a value should be invoked via exec, which will cause them
@@ -460,10 +462,10 @@ private GeneratedFile openUniqueFile(String directory,String prefix,String suffi
             // Probably a timing hazard here... ***************
             try
                 {
-                    className = prefix+uniqueFileOffset;
+                    className = prefix+NetRexxEngine.uniqueFileOffset;
                     file=new File(directory+File.separatorChar+className+suffix);
                     obj=new File(directory+File.separatorChar+className+logClass);
-                    if(file!=null && !file.exists() & obj!=null & !obj.exists())
+                    if(file != null && !file.exists() && obj != null && !obj.exists())
                         fos=new FileOutputStream(file);
                 }
             catch(Exception e)
@@ -485,5 +487,8 @@ private GeneratedFile openUniqueFile(String directory,String prefix,String suffi
         return gf;
     }
 
-    public void undeclareBean (BSFDeclaredBean bean) throws BSFException {}
+    @Override
+    public void undeclareBean (BSFDeclaredBean bean) throws BSFException {
+        throw new UnsupportedOperationException("This operation is not supported.");
+    }
 }

@@ -38,13 +38,14 @@ class BSFCommand implements Command {
         this.mgr = mgr;
         this.jengine = jengine;
     }
-
-    public void cmdProc(final Interp interp, final TclObject argv[]) throws TclException {
-        if (argv.length < 2) {
+    public void checkMinArg(final Interp interp, int arg) throws TclException{
+        if (arg < 2) {
             interp.setResult("invalid # of args; usage: bsf " + "lookupBean|registerBean|unregisterBean|addEventListener args");
             throw new TclException(TCL.ERROR);
         }
-
+    }
+    public void cmdProc(final Interp interp, final TclObject argv[]) throws TclException {
+        checkMinArg(interp,argv.length);
         final String op = argv[1].toString();
 
         switch (op) {

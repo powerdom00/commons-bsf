@@ -239,10 +239,6 @@ public class JythonEngine extends BSFEngineImpl {
     }
 
     private class BSFPythonInterpreter extends InteractiveInterpreter {
-
-        public BSFPythonInterpreter() {
-        }
-
         // Override runcode so as not to print the stack dump
         public void runcode(final PyObject code) {
             try {

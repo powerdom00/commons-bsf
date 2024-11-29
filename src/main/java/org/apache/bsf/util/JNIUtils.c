@@ -160,7 +160,7 @@ jobject bsf_lookupbean (JNIEnv *jenv, jobject mgr, char *beanname) {
 
 /* return the type signature string component for the given type:
    I for ints, J for long, ... */
-char *bsf_getTypeSignatureString (JNIEnv *jenv, jclass objclass) {
+const char *bsf_getTypeSignatureString (JNIEnv *jenv, jclass objclass) {
   jclass cl = 0;
   jmethodID mid = 0;
   jstring str;
@@ -174,7 +174,7 @@ char *bsf_getTypeSignatureString (JNIEnv *jenv, jclass objclass) {
     return 0;
   }
   str = (jstring) (*jenv)->CallStaticObjectMethod (jenv, cl, mid, objclass);
-  return (char *) bsf_obj2cstring (jenv, str);
+  return bsf_obj2cstring (jenv, str);
 }
 
 /* make objects from primitives */
