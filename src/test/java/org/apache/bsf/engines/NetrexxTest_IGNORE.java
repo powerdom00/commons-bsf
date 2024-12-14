@@ -142,8 +142,6 @@ public class NetrexxTest_IGNORE extends BSFEngineTestCase {
 
         assertEquals(retValue, new Integer(0));
     }
-
     public void testAllIgnoredUntilNetrexxIsSetUp() {
-        // empty
     }
 }

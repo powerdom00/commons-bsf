@@ -447,7 +447,7 @@ public class NetRexxEngine extends BSFEngineImpl
         super.initialize(mgr, lang, declaredBeans);
         mgrfuncs = new BSFFunctions (mgr, this);
     }
-private GeneratedFile openUniqueFile(String directory,String prefix,String suffix)
+private static GeneratedFile openUniqueFile(String directory,String prefix,String suffix)
     {
         File file=null,obj=null;
         FileOutputStream fos=null;
