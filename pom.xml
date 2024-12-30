@@ -144,6 +144,7 @@
   </scm>
 
   <build>
+    <finalName>bsf-docker</finalName>
     <!-- japicmp:cmp detected breaks, TODO fixes for javadoc:javadoc and checkstyles, and ... -->
     <defaultGoal>clean verify apache-rat:check</defaultGoal>
     <plugins>
@@ -161,6 +162,15 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+              <mainClass>example.ExecJavascript</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
         <executions>
           <execution>
             <goals>
