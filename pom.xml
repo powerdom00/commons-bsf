@@ -149,6 +149,31 @@
     <defaultGoal>clean verify apache-rat:check</defaultGoal>
     <plugins>
       <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.10</version>
+        <configuration>
+          <excludes>
+            <exclude>sun/util/resources/**</exclude>
+            <exclude>jdk/internal/**</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <!-- Temporary hack to allow compilation; remove when engine dependencies have been sorted -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -188,6 +213,18 @@
 
   <reporting>
     <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <!-- select non-aggregate reports -->
+              <report>report</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
       <!-- <plugin> <groupId>org.codehaus.mojo</groupId> <artifactId>jardiff-maven-plugin</artifactId> <configuration> <artifacts> 
         <artifact> <version>5.2</version> </artifact> <artifact> <groupId>bcel</groupId> <version>5.1</version> </artifact> </artifacts> 
         </configuration> </plugin> -->
