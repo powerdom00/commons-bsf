@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JEXLEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.engines.jexl</a> &gt; <span class="el_source">JEXLEngine.java</span></div><h1>JEXLEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package org.apache.bsf.engines.jexl;
+
+import java.io.File;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.util.Vector;
+
+import org.apache.bsf.BSFDeclaredBean;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.util.BSFEngineImpl;
+
+import org.apache.commons.jexl.JexlContext;
+import org.apache.commons.jexl.JexlHelper;
+import org.apache.commons.jexl.Script;
+import org.apache.commons.jexl.ScriptFactory;
+
+/**
+ * {@link BSFEngine} for Commons JEXL. Requires Commons JEXL version 1.1 or later.
+ *
+ * @see &lt;a href=&quot;http://commons.apache.org/jexl/&quot;&gt;Commons JEXL&lt;/a&gt;
+ */
+<span class="nc" id="L39">public class JEXLEngine extends BSFEngineImpl {</span>
+
+    /** The backing JexlContext for this engine. */
+    private JexlContext jc;
+
+    /**
+     * Initialize the JEXL engine by creating a JexlContext and populating it with the declared beans.
+     *
+     * @param mgr           The {@link BSFManager}.
+     * @param lang          The language.
+     * @param declaredBeans The vector of the initially declared beans.
+     *
+     * @throws BSFException For any exception that occurs while trying to initialize the engine.
+     */
+    public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {
+<span class="nc" id="L54">        super.initialize(mgr, lang, declaredBeans);</span>
+<span class="nc" id="L55">        jc = JexlHelper.createContext();</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        for (int i = 0; i &lt; declaredBeans.size(); i++) {</span>
+<span class="nc" id="L57">            final BSFDeclaredBean bean = (BSFDeclaredBean) declaredBeans.elementAt(i);</span>
+<span class="nc" id="L58">            jc.getVars().put(bean.name, bean.bean);</span>
+        }
+<span class="nc" id="L60">    }</span>
+
+    /**
+     * Terminate the JEXL engine by clearing and destroying the backing JEXLContext.
+     */
+    public void terminate() {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (jc != null) {</span>
+<span class="nc" id="L67">            jc.getVars().clear();</span>
+<span class="nc" id="L68">            jc = null;</span>
+        }
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * Adds this bean to the backing JexlContext.
+     *
+     * @param bean The {@link BSFDeclaredBean} to be added to the backing context.
+     *
+     * @throws BSFException For any exception that occurs while trying to declare the bean.
+     */
+    public void declareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="nc" id="L80">        jc.getVars().put(bean.name, bean.bean);</span>
+<span class="nc" id="L81">    }</span>
+
+    /**
+     * Removes this bean from the backing JexlContext.
+     *
+     * @param bean The {@link BSFDeclaredBean} to be removed from the backing context.
+     *
+     * @throws BSFException For any exception that occurs while trying to undeclare the bean.
+     */
+    public void undeclareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="nc" id="L91">        jc.getVars().remove(bean.name);</span>
+<span class="nc" id="L92">    }</span>
+
+    /**
+     * Evaluates the expression as a JEXL Script.
+     *
+     * @param fileName The file name, if it is available.
+     * @param lineNo   The line number, if it is available.
+     * @param colNo    The column number, if it is available.
+     * @param expr     The expression to be evaluated.
+     *
+     * @throws BSFException For any exception that occurs while evaluating the expression.
+     */
+    public Object eval(final String fileName, final int lineNo, final int colNo, final Object expr) throws BSFException {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (expr == null) {</span>
+<span class="nc" id="L106">            return null;</span>
+        }
+        try {
+<span class="nc" id="L109">            Script jExpr = null;</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (expr instanceof File) {</span>
+<span class="nc" id="L111">                jExpr = ScriptFactory.createScript((File) expr);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            } else if (expr instanceof URL) {</span>
+<span class="nc" id="L113">                jExpr = ScriptFactory.createScript((URL) expr);</span>
+            } else {
+<span class="nc" id="L115">                jExpr = ScriptFactory.createScript((String) expr);</span>
+            }
+<span class="nc" id="L117">            return jExpr.execute(jc);</span>
+<span class="nc" id="L118">        } catch (final Exception e) {</span>
+<span class="nc" id="L119">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;Exception from Commons JEXL:\n&quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    /**
+     * Executes the script as a JEXL {@link Script}.
+     *
+     * @param fileName The file name, if it is available.
+     * @param lineNo   The line number, if it is available.
+     * @param colNo    The column number, if it is available.
+     * @param script   The script to be executed.
+     *
+     * @throws BSFException For any exception that occurs while executing the script.
+     */
+    public void exec(final String fileName, final int lineNo, final int colNo, final Object script) throws BSFException {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (script == null) {</span>
+<span class="nc" id="L135">            return;</span>
+        }
+        try {
+<span class="nc" id="L138">            Script jExpr = null;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">            if (script instanceof File) {</span>
+<span class="nc" id="L140">                jExpr = ScriptFactory.createScript((File) script);</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            } else if (script instanceof URL) {</span>
+<span class="nc" id="L142">                jExpr = ScriptFactory.createScript((URL) script);</span>
+            } else {
+<span class="nc" id="L144">                jExpr = ScriptFactory.createScript((String) script);</span>
+            }
+<span class="nc" id="L146">            jExpr.execute(jc);</span>
+<span class="nc" id="L147">        } catch (final Exception e) {</span>
+<span class="nc" id="L148">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;Exception from Commons JEXL:\n&quot; + e.getMessage(), e);</span>
+<span class="nc" id="L149">        }</span>
+<span class="nc" id="L150">    }</span>
+
+    /**
+     * Same behavior as {@link #exec(String, int, int, Object)} for JEXLEngine.
+     *
+     * @param fileName The file name, if it is available.
+     * @param lineNo   The line number, if it is available.
+     * @param colNo    The column number, if it is available.
+     * @param script   The script to be executed.
+     *
+     * @throws BSFException For any exception that occurs while interactively executing the script.
+     */
+    public void iexec(final String fileName, final int lineNo, final int colNo, final Object script) throws BSFException {
+<span class="nc" id="L163">        exec(fileName, lineNo, colNo, script);</span>
+<span class="nc" id="L164">    }</span>
+
+    /**
+     * Uses reflection to make the call.
+     *
+     * @param object The object to make the call on.
+     * @param name   The call to make.
+     * @param args   The arguments to pass.
+     *
+     * @return The result of the call.
+     *
+     * @throws BSFException For any exception that occurs while making the call.
+     */
+    public Object call(final Object object, final String name, final Object[] args) throws BSFException {
+        try {
+<span class="nc" id="L179">            final Class[] types = new Class[args.length];</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="nc" id="L181">                types[i] = args[i].getClass();</span>
+            }
+<span class="nc" id="L183">            final Method m = object.getClass().getMethod(name, types);</span>
+<span class="nc" id="L184">            return m.invoke(object, args);</span>
+<span class="nc" id="L185">        } catch (final Exception e) {</span>
+<span class="nc" id="L186">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;Exception from JEXLEngine:\n&quot; + e.getMessage(), e);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

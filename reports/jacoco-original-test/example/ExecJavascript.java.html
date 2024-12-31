@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExecJavascript.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">example</a> &gt; <span class="el_source">ExecJavascript.java</span></div><h1>ExecJavascript.java</h1><pre class="source lang-java linenums">package example;/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.BSFException;
+import java.util.Scanner;
+
+<span class="nc" id="L22">public class ExecJavascript {</span>
+    public static void main(String[] args) {
+        // Initialize BSFManager to execute JavaScript
+<span class="nc" id="L25">        BSFManager bsfManager = new BSFManager();</span>
+<span class="nc" id="L26">        Scanner scanner = new Scanner(System.in);</span>
+
+        try {
+            // Register the MathLibrary class as a JavaScript object
+<span class="nc" id="L30">            bsfManager.declareBean(&quot;math&quot;, new MathLibrary(), MathLibrary.class);</span>
+
+            while (true) {
+                // Print the menu
+<span class="nc" id="L34">                System.out.println(&quot;Select a mathematical function:&quot;);</span>
+<span class="nc" id="L35">                System.out.println(&quot;1. Sine (sin)&quot;);</span>
+<span class="nc" id="L36">                System.out.println(&quot;2. Cosine (cos)&quot;);</span>
+<span class="nc" id="L37">                System.out.println(&quot;3. Tangent (tan)&quot;);</span>
+<span class="nc" id="L38">                System.out.println(&quot;4. Exponential (exp)&quot;);</span>
+<span class="nc" id="L39">                System.out.println(&quot;5. Natural Logarithm (ln)&quot;);</span>
+<span class="nc" id="L40">                System.out.println(&quot;6. Square Root (sqrt)&quot;);</span>
+<span class="nc" id="L41">                System.out.println(&quot;7. Power (pow)&quot;);</span>
+<span class="nc" id="L42">                System.out.println(&quot;8. Absolute Value (abs)&quot;);</span>
+<span class="nc" id="L43">                System.out.println(&quot;9. Maximum (max)&quot;);</span>
+<span class="nc" id="L44">                System.out.println(&quot;10. Minimum (min)&quot;);</span>
+<span class="nc" id="L45">                System.out.println(&quot;0. Exit&quot;);</span>
+
+                // Read user choice
+<span class="nc" id="L48">                int choice = scanner.nextInt();</span>
+
+<span class="nc bnc" id="L50" title="All 2 branches missed.">                if (choice == 0) {</span>
+<span class="nc" id="L51">                    System.out.println(&quot;Exiting the program...&quot;);</span>
+<span class="nc" id="L52">                    break;  // Exit the program</span>
+                }
+
+                // Variables for function parameters
+                double num1, num2;
+<span class="nc" id="L57">                String script = &quot;&quot;;</span>
+
+<span class="nc bnc" id="L59" title="All 11 branches missed.">                switch (choice) {</span>
+                    case 1:  // Sine
+<span class="nc" id="L61">                        System.out.print(&quot;Enter the angle in degrees for sine: &quot;);</span>
+<span class="nc" id="L62">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L63">                        script = &quot;var result = math.sinFunction(&quot; + num1 + &quot;); &quot; +</span>
+                                 &quot;result;&quot;;
+<span class="nc" id="L65">                        break;</span>
+                    case 2:  // Cosine
+<span class="nc" id="L67">                        System.out.print(&quot;Enter the angle in degrees for cosine: &quot;);</span>
+<span class="nc" id="L68">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L69">                        script = &quot;var result = math.cosFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                 &quot;result;&quot;;
+<span class="nc" id="L71">                        break;</span>
+                    case 3:  // Tangent
+<span class="nc" id="L73">                        System.out.print(&quot;Enter the angle in degrees for tangent: &quot;);</span>
+<span class="nc" id="L74">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L75">                        script = &quot;var result = math.tanFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L77">                        break;</span>
+                    case 4:  // Exponential
+<span class="nc" id="L79">                        System.out.print(&quot;Enter the number for exponential (e^x): &quot;);</span>
+<span class="nc" id="L80">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L81">                        script = &quot;var result = math.expFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L83">                        break;</span>
+                    case 5:  // Natural Logarithm
+<span class="nc" id="L85">                        System.out.print(&quot;Enter the number for natural logarithm (ln): &quot;);</span>
+<span class="nc" id="L86">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L87">                        script = &quot;var result = math.logFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L89">                        break;</span>
+                    case 6:  // Square Root
+<span class="nc" id="L91">                        System.out.print(&quot;Enter the number for square root: &quot;);</span>
+<span class="nc" id="L92">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L93">                        script = &quot;var result = math.sqrtFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L95">                        break;</span>
+                    case 7:  // Power
+<span class="nc" id="L97">                        System.out.print(&quot;Enter the base: &quot;);</span>
+<span class="nc" id="L98">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L99">                        System.out.print(&quot;Enter the exponent: &quot;);</span>
+<span class="nc" id="L100">                        num2 = scanner.nextDouble();</span>
+<span class="nc" id="L101">                        script = &quot;var result = math.powFunction(&quot; + num1 + &quot;, &quot; + num2 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L103">                        break;</span>
+                    case 8:  // Absolute Value
+<span class="nc" id="L105">                        System.out.print(&quot;Enter the number for absolute value: &quot;);</span>
+<span class="nc" id="L106">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L107">                        script = &quot;var result = math.absFunction(&quot; + num1 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L109">                        break;</span>
+                    case 9:  // Maximum
+<span class="nc" id="L111">                        System.out.print(&quot;Enter the first number for maximum: &quot;);</span>
+<span class="nc" id="L112">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L113">                        System.out.print(&quot;Enter the second number for maximum: &quot;);</span>
+<span class="nc" id="L114">                        num2 = scanner.nextDouble();</span>
+<span class="nc" id="L115">                        script = &quot;var result = math.maxFunction(&quot; + num1 + &quot;, &quot; + num2 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L117">                        break;</span>
+                    case 10:  // Minimum
+<span class="nc" id="L119">                        System.out.print(&quot;Enter the first number for minimum: &quot;);</span>
+<span class="nc" id="L120">                        num1 = scanner.nextDouble();</span>
+<span class="nc" id="L121">                        System.out.print(&quot;Enter the second number for minimum: &quot;);</span>
+<span class="nc" id="L122">                        num2 = scanner.nextDouble();</span>
+<span class="nc" id="L123">                        script = &quot;var result = math.minFunction(&quot; + num1 + &quot;, &quot; + num2 + &quot;); &quot;+</span>
+                                &quot;result;&quot;;
+<span class="nc" id="L125">                        break;</span>
+                    default:
+<span class="nc" id="L127">                        System.out.println(&quot;Invalid choice, please try again.&quot;);</span>
+<span class="nc" id="L128">                        continue;  // Return to the menu</span>
+                }
+
+                // Execute the script
+<span class="nc" id="L132">                Object result = bsfManager.eval(&quot;javascript&quot;, &quot;script&quot;, 0, 0, script);</span>
+
+                // Print the result
+<span class="nc" id="L135">                System.out.println(&quot;Result: &quot; + result);</span>
+<span class="nc" id="L136">            }</span>
+
+<span class="nc" id="L138">        } catch (BSFException e) {</span>
+<span class="nc" id="L139">            e.printStackTrace();</span>
+        } finally {
+<span class="nc" id="L141">            scanner.close();  // Close the scanner</span>
+        }
+<span class="nc" id="L143">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventAdapterGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util.event.generator</a> &gt; <span class="el_source">EventAdapterGenerator.java</span></div><h1>EventAdapterGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+    2015-01-15, rgf: take into account that a context thread class loader may be null (not set)
+
+    2007-09-21: Rony G. Flatscher, new class loading sequence:
+
+           - Thread's context class loader
+           - BSFManager's defining class loader
+
+    2007-01-29: Rony G. Flatscher: added BSF_Log[Factory] to allow BSF to run without org.apache.commons.logging present
+*/
+
+package org.apache.bsf.util.event.generator;
+
+import org.apache.bsf.BSF_Log;
+import org.apache.bsf.BSF_LogFactory;
+
+import org.apache.bsf.BSFManager;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+/**
+ * EventAdapterGenerator
+ *
+ * Generate an &quot;Event Adapter&quot; dynamically during program execution
+ *
+ **/
+<span class="nc" id="L45">public class EventAdapterGenerator {</span>
+<span class="fc" id="L46">    public static AdapterClassLoader ldr = new AdapterClassLoader();</span>
+<span class="fc" id="L47">    static Class EVENTLISTENER = null;</span>
+<span class="fc" id="L48">    static String CLASSPACKAGE = &quot;org/apache/bsf/util/event/adapters/&quot;;</span>
+<span class="fc" id="L49">    static String WRITEDIRECTORY = null;</span>
+
+    // starting 8 bytes of all Java Class files
+    static byte CLASSHEADER[];
+    // constant pool items found in all event adapters
+    static short BASECPCOUNT; // number of cp items + 1 ( cp item # 0 reserved for JVM )
+    static byte BASECP[]; //
+    // some bytes in the middle of the class file (see below)
+    static byte FIXEDCLASSBYTES[];
+    // the initialization method, noargs constructor
+    static byte INITMETHOD[];
+
+<span class="fc" id="L61">    private static BSF_Log logger = null;</span>
+
+    /* The static initializer */
+    static {
+        // logger = LogFactory.getLog((org.apache.bsf.util.event.generator.EventAdapterGenerator.class).getName());
+<span class="fc" id="L66">        logger = BSF_LogFactory.getLog((org.apache.bsf.util.event.generator.EventAdapterGenerator.class).getName());</span>
+
+<span class="fc" id="L68">        final String USERCLASSPACKAGE = System.getProperty(&quot;DynamicEventClassPackage&quot;, &quot;&quot;);</span>
+
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (!USERCLASSPACKAGE.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L71">            CLASSPACKAGE = USERCLASSPACKAGE;</span>
+        }
+
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (CLASSPACKAGE.length() &gt; 0) {</span>
+<span class="fc" id="L75">            CLASSPACKAGE = CLASSPACKAGE.replace('\\', '/');</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">            if (!CLASSPACKAGE.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L77">                CLASSPACKAGE = CLASSPACKAGE + &quot;/&quot;;</span>
+            }
+        }
+<span class="fc" id="L80">        WRITEDIRECTORY = System.getProperty(&quot;DynamicEventClassWriteDirectory&quot;, CLASSPACKAGE);</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (WRITEDIRECTORY.length() &gt; 0) {</span>
+<span class="fc" id="L82">            WRITEDIRECTORY = WRITEDIRECTORY.replace('\\', '/');</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (!WRITEDIRECTORY.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L84">                WRITEDIRECTORY = WRITEDIRECTORY + &quot;/&quot;;</span>
+            }
+        }
+        try
+        // { EVENTLISTENER = Class.forName(&quot;java.util.EventListener&quot;); }
+        {
+            // EVENTLISTENER = Thread.currentThread().getContextClassLoader().loadClass (&quot;java.util.EventListener&quot;); // rgf, 2006-01-05
+
+            // rgf, 20070917: first try context class loader, then BSFManager's defining class loader
+<span class="fc" id="L93">            EVENTLISTENER = null;</span>
+<span class="fc" id="L94">            final ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">            if (tccl != null) {</span>
+                try {
+<span class="fc" id="L98">                    EVENTLISTENER = tccl.loadClass(&quot;java.util.EventListener&quot;);</span>
+<span class="nc" id="L99">                } catch (final ClassNotFoundException ex01) {</span>
+<span class="fc" id="L100">                }</span>
+            }
+
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">            if (EVENTLISTENER == null) // did not work, try to load it via the definedClassLoader</span>
+            {
+<span class="nc" id="L105">                EVENTLISTENER = BSFManager.getDefinedClassLoader().loadClass(&quot;java.util.EventListener&quot;);</span>
+            }
+
+<span class="nc" id="L108">        } catch (final ClassNotFoundException ex) {</span>
+<span class="nc" id="L109">            System.err.println(ex.getMessage());</span>
+<span class="nc" id="L110">            ex.printStackTrace();</span>
+<span class="fc" id="L111">        }</span>
+
+        // start of the Java Class File
+<span class="fc" id="L114">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (byte) 0xCA); // magic</span>
+<span class="fc" id="L115">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (byte) 0xFE); // magic</span>
+<span class="fc" id="L116">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (byte) 0xBA); // magic</span>
+<span class="fc" id="L117">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (byte) 0xBE); // magic</span>
+<span class="fc" id="L118">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (short) 3); // minor version</span>
+<span class="fc" id="L119">        CLASSHEADER = ByteUtility.addBytes(CLASSHEADER, (short) 45); // major version</span>
+
+        // Start the constant pool for base items in all event adapter classes
+<span class="fc" id="L122">        BASECPCOUNT = 17; // number of cp items + 1 ( cp item # 0 reserved for JVM )</span>
+
+        // cp item 01
+<span class="fc" id="L125">        BASECP = Bytecode.addUtf8(BASECP, &quot;()V&quot;);</span>
+
+        // cp item 02
+<span class="fc" id="L128">        BASECP = Bytecode.addUtf8(BASECP, &quot;&lt;init&gt;&quot;);</span>
+
+        // cp item 03
+<span class="fc" id="L131">        BASECP = Bytecode.addUtf8(BASECP, &quot;Code&quot;);</span>
+
+        // cp item 04
+<span class="fc" id="L134">        BASECP = Bytecode.addUtf8(BASECP, &quot;eventProcessor&quot;);</span>
+
+        // cp item 05
+<span class="fc" id="L137">        BASECP = Bytecode.addUtf8(BASECP, &quot;java/lang/Object&quot;);</span>
+
+        // cp item 06
+<span class="fc" id="L140">        BASECP = Bytecode.addUtf8(BASECP, &quot;org/apache/bsf/util/event/EventAdapterImpl&quot;);</span>
+
+        // cp item 07
+<span class="fc" id="L143">        BASECP = Bytecode.addUtf8(BASECP, &quot;org/apache/bsf/util/event/EventProcessor&quot;);</span>
+
+        // cp item 08
+<span class="fc" id="L146">        BASECP = Bytecode.addUtf8(BASECP, &quot;(Ljava/lang/String;[Ljava/lang/Object;)V&quot;);</span>
+
+        // cp item 09
+<span class="fc" id="L149">        BASECP = Bytecode.addUtf8(BASECP, &quot;Lorg/apache/bsf/util/event/EventProcessor;&quot;);</span>
+
+        // cp item 10
+<span class="fc" id="L152">        BASECP = Bytecode.addClass(BASECP, (short) 5); // Class &quot;java/lang/Object&quot;</span>
+
+        // cp item 11
+<span class="fc" id="L155">        BASECP = Bytecode.addClass(BASECP, (short) 6); // Class &quot;org/apache/bsf/util/event/EventAdapterImpl&quot;</span>
+
+        // cp item 12
+<span class="fc" id="L158">        BASECP = Bytecode.addClass(BASECP, (short) 7); // Class &quot;org/apache/bsf/util/event/EventProcessor&quot;</span>
+
+        // cp item 13
+<span class="fc" id="L161">        BASECP = Bytecode.addNameAndType(BASECP, (short) 2, (short) 1); // &quot;&lt;init&gt;&quot; &quot;()V&quot;</span>
+
+        // cp item 14
+<span class="fc" id="L164">        BASECP = Bytecode.addNameAndType(BASECP, (short) 4, (short) 9); // &quot;eventProcessor&quot; &quot;Lorg/apache/bsf/util/event/EventProcessor;&quot;</span>
+
+        // cp item 15
+<span class="fc" id="L167">        BASECP = Bytecode.addFieldRef(BASECP, (short) 11, (short) 14);</span>
+
+        // cp item 16
+<span class="fc" id="L170">        BASECP = Bytecode.addMethodRef(BASECP, (short) 11, (short) 13);</span>
+
+        // fixed bytes in middle of class file
+<span class="fc" id="L173">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 0x21); // access_flags (fixed)</span>
+<span class="fc" id="L174">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 20); // this_class (fixed)</span>
+<span class="fc" id="L175">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 11); // super_class (fixed)</span>
+<span class="fc" id="L176">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 1); // interface_count (fixed)</span>
+<span class="fc" id="L177">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 19); // interfaces (fixed)</span>
+<span class="fc" id="L178">        FIXEDCLASSBYTES = ByteUtility.addBytes(FIXEDCLASSBYTES, (short) 0); // field_count (fixed)</span>
+
+        // initialization method, constructor
+<span class="fc" id="L181">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 1); // access_flags</span>
+<span class="fc" id="L182">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 2); // name_index &quot;&lt;init&gt;&quot;</span>
+<span class="fc" id="L183">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 1); // descriptor_index &quot;()V&quot;</span>
+<span class="fc" id="L184">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 1); // attribute_count</span>
+<span class="fc" id="L185">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 3); // attribute_name_index &quot;Code&quot;</span>
+<span class="fc" id="L186">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (long) 17); // attribute_length</span>
+<span class="fc" id="L187">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 1); // max_stack</span>
+<span class="fc" id="L188">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 1); // max_locals</span>
+<span class="fc" id="L189">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (long) 5); // code_length</span>
+        // code
+<span class="fc" id="L191">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (byte) 0x2A); // aload_0</span>
+<span class="fc" id="L192">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (byte) 0xB7); // invokespecial</span>
+<span class="fc" id="L193">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 16); // method_ref index</span>
+<span class="fc" id="L194">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (byte) 0xB1); // return</span>
+        // exception table
+<span class="fc" id="L196">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 0); // exception_table_length</span>
+<span class="fc" id="L197">        INITMETHOD = ByteUtility.addBytes(INITMETHOD, (short) 0); // attributes_count</span>
+
+<span class="fc" id="L199">    }</span>
+
+    /* methods that take an EventListener Class Type to create an EventAdapterClass */
+    public static Class makeEventAdapterClass(final Class listenerType, final boolean writeClassFile) {
+<span class="fc" id="L203">        logger.debug(&quot;EventAdapterGenerator&quot;);</span>
+
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (EVENTLISTENER.isAssignableFrom(listenerType)) {</span>
+<span class="fc" id="L206">            boolean exceptionable = false;</span>
+<span class="fc" id="L207">            boolean nonExceptionable = false;</span>
+<span class="fc" id="L208">            byte[] constantPool = null;</span>
+            short cpBaseIndex;
+<span class="fc" id="L210">            short cpCount = 0;</span>
+            short cpExceptionBaseIndex;
+            short exceptionableCount;
+            short nonExceptionableCount;
+
+            /* Derive Names */
+<span class="fc" id="L216">            final String listenerTypeName = listenerType.getName();</span>
+<span class="fc" id="L217">            logger.debug(&quot;ListenerTypeName: &quot; + listenerTypeName);</span>
+<span class="fc" id="L218">            final String adapterClassName = CLASSPACKAGE</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">                    + (listenerTypeName.endsWith(&quot;Listener&quot;) ? listenerTypeName.substring(0, listenerTypeName.length() - 8) : listenerTypeName).replace('.',</span>
+                            '_')
+                    + &quot;Adapter&quot;;
+<span class="fc" id="L222">            String finalAdapterClassName = adapterClassName;</span>
+<span class="fc" id="L223">            Class cached = null;</span>
+<span class="fc" id="L224">            int suffixIndex = 0;</span>
+
+            do {
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                if (null != (cached = ldr.getLoadedClass(finalAdapterClassName))) {</span>
+<span class="nc" id="L228">                    logger.debug(&quot;cached:  &quot; + cached);</span>
+                    try {
+<span class="nc bnc" id="L230" title="All 2 branches missed.">                        if (!listenerType.isAssignableFrom(cached)) {</span>
+<span class="nc" id="L231">                            finalAdapterClassName = adapterClassName + &quot;_&quot; + suffixIndex++;</span>
+                        } else {
+<span class="nc" id="L233">                            return cached;</span>
+                        }
+<span class="nc" id="L235">                    } catch (final VerifyError ex) {</span>
+<span class="nc" id="L236">                        System.err.println(ex.getMessage());</span>
+<span class="nc" id="L237">                        ex.printStackTrace();</span>
+<span class="nc" id="L238">                        return cached;</span>
+<span class="nc" id="L239">                    }</span>
+                }
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">            } while (cached != null);</span>
+
+<span class="fc" id="L243">            final String eventListenerName = listenerTypeName.replace('.', '/');</span>
+
+            /* method stuff */
+<span class="fc" id="L246">            final java.lang.reflect.Method[] lms = listenerType.getMethods();</span>
+
+            /* ****************************************************************************************** */
+            // Listener interface
+            // Class name
+<span class="fc" id="L251">            cpCount += 4;</span>
+
+            // cp item 17
+<span class="fc" id="L254">            constantPool = Bytecode.addUtf8(constantPool, eventListenerName);</span>
+
+            // cp item 18
+<span class="fc" id="L257">            constantPool = Bytecode.addUtf8(constantPool, finalAdapterClassName);</span>
+
+            // cp item 19
+<span class="fc" id="L260">            constantPool = Bytecode.addClass(constantPool, (short) 17);</span>
+
+            // cp item 20
+<span class="fc" id="L263">            constantPool = Bytecode.addClass(constantPool, (short) 18);</span>
+
+            // do we have nonExceptionalble event, exceptionable or both
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">            for (int i = 0; i &lt; lms.length; ++i) {</span>
+<span class="nc" id="L267">                final Class[] exceptionTypes = lms[i].getExceptionTypes();</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">                if (0 &lt; exceptionTypes.length) {</span>
+<span class="nc" id="L269">                    exceptionable = true;</span>
+                } else {
+<span class="nc" id="L271">                    nonExceptionable = true;</span>
+                }
+            } /* End for */
+
+            /* ****************************************************************************************** */
+            // optional inclusion of nonexceptional events affects exceptional events indices
+
+<span class="fc" id="L278">            nonExceptionableCount = 0;</span>
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">            if (nonExceptionable) {</span>
+<span class="nc" id="L280">                nonExceptionableCount = 3;</span>
+<span class="nc" id="L281">                cpCount += nonExceptionableCount;</span>
+
+                // cp item 21
+<span class="nc" id="L284">                constantPool = Bytecode.addUtf8(constantPool, &quot;processEvent&quot;);</span>
+
+                // cp item 22
+<span class="nc" id="L287">                constantPool = Bytecode.addNameAndType(constantPool, (short) 21, (short) 8);</span>
+
+                // cp item 23
+<span class="nc" id="L290">                constantPool = Bytecode.addInterfaceMethodRef(constantPool, (short) 12, (short) 22);</span>
+            }
+
+            /* ****************************************************************************************** */
+            // optional inclusion of exceptional events affects CP Items which follow for specific methods
+
+<span class="fc" id="L296">            exceptionableCount = 0;</span>
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">            if (exceptionable) {</span>
+<span class="nc" id="L298">                final int classIndex = BASECPCOUNT + cpCount + 1;</span>
+<span class="nc" id="L299">                final int nameIndex = BASECPCOUNT + cpCount + 0;</span>
+<span class="nc" id="L300">                final int natIndex = BASECPCOUNT + cpCount + 3;</span>
+
+<span class="nc" id="L302">                exceptionableCount = 5;</span>
+<span class="nc" id="L303">                cpCount += exceptionableCount;</span>
+
+                // cp item 24 or 21
+<span class="nc" id="L306">                constantPool = Bytecode.addUtf8(constantPool, &quot;processExceptionableEvent&quot;);</span>
+
+                // cp item 25 or 22
+<span class="nc" id="L309">                constantPool = Bytecode.addUtf8(constantPool, &quot;java/lang/Exception&quot;);</span>
+
+                // cp item 26 or 23
+<span class="nc" id="L312">                constantPool = Bytecode.addClass(constantPool, (short) classIndex);</span>
+
+                // cp item 27 or 24
+<span class="nc" id="L315">                constantPool = Bytecode.addNameAndType(constantPool, (short) nameIndex, (short) 8);</span>
+
+                // cp item 28 or 25
+<span class="nc" id="L318">                constantPool = Bytecode.addInterfaceMethodRef(constantPool, (short) 12, (short) natIndex);</span>
+
+            }
+
+            // base index for method cp references
+<span class="fc" id="L323">            cpBaseIndex = (short) (BASECPCOUNT + cpCount);</span>
+<span class="fc" id="L324">            logger.debug(&quot;cpBaseIndex: &quot; + cpBaseIndex);</span>
+
+<span class="pc bpc" id="L326" title="1 of 2 branches missed.">            for (int i = 0; i &lt; lms.length; ++i) {</span>
+<span class="nc" id="L327">                final String eventMethodName = lms[i].getName();</span>
+<span class="nc" id="L328">                final String eventName = lms[i].getParameterTypes()[0].getName().replace('.', '/');</span>
+<span class="nc" id="L329">                cpCount += 3;</span>
+                // cp items for event methods
+<span class="nc" id="L331">                constantPool = Bytecode.addUtf8(constantPool, eventMethodName);</span>
+<span class="nc" id="L332">                constantPool = Bytecode.addUtf8(constantPool, (&quot;(L&quot; + eventName + &quot;;)V&quot;));</span>
+<span class="nc" id="L333">                constantPool = Bytecode.addString(constantPool, (short) (BASECPCOUNT + cpCount - 3));</span>
+            } /* End for */
+
+<span class="fc" id="L336">            final boolean[] propertyChangeFlag = new boolean[lms.length];</span>
+<span class="fc" id="L337">            int cpIndexPCE = 0;</span>
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">            for (int i = 0; i &lt; lms.length; ++i) {</span>
+<span class="nc" id="L339">                final String eventName = lms[i].getParameterTypes()[0].getName().replace('.', '/');</span>
+                // cp items for PropertyChangeEvent special handling
+<span class="nc bnc" id="L341" title="All 2 branches missed.">                if (eventName.equalsIgnoreCase(&quot;java/beans/PropertyChangeEvent&quot;)) {</span>
+<span class="nc" id="L342">                    propertyChangeFlag[i] = true;</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">                    if (0 == cpIndexPCE) {</span>
+<span class="nc" id="L344">                        constantPool = Bytecode.addUtf8(constantPool, eventName);</span>
+<span class="nc" id="L345">                        constantPool = Bytecode.addUtf8(constantPool, &quot;getPropertyName&quot;);</span>
+<span class="nc" id="L346">                        constantPool = Bytecode.addUtf8(constantPool, &quot;()Ljava/lang/String;&quot;);</span>
+<span class="nc" id="L347">                        constantPool = Bytecode.addClass(constantPool, (short) (BASECPCOUNT + cpCount));</span>
+<span class="nc" id="L348">                        constantPool = Bytecode.addNameAndType(constantPool, (short) (BASECPCOUNT + cpCount + 1), (short) (BASECPCOUNT + cpCount + 2));</span>
+<span class="nc" id="L349">                        constantPool = Bytecode.addMethodRef(constantPool, (short) (BASECPCOUNT + cpCount + 3), (short) (BASECPCOUNT + cpCount + 4));</span>
+<span class="nc" id="L350">                        cpCount += 6;</span>
+<span class="nc" id="L351">                        cpIndexPCE = BASECPCOUNT + cpCount - 1;</span>
+
+                    }
+                } else {
+<span class="nc" id="L355">                    propertyChangeFlag[i] = false;</span>
+                }
+            } /* End for */
+
+<span class="fc" id="L359">            cpExceptionBaseIndex = (short) (BASECPCOUNT + cpCount);</span>
+<span class="fc" id="L360">            logger.debug(&quot;cpExceptionBaseIndex: &quot; + cpExceptionBaseIndex);</span>
+
+<span class="fc" id="L362">            final int excpIndex[][] = new int[lms.length][];</span>
+<span class="pc bpc" id="L363" title="1 of 2 branches missed.">            for (int i = 0; i &lt; lms.length; ++i) {</span>
+<span class="nc" id="L364">                final Class[] exceptionTypes = lms[i].getExceptionTypes();</span>
+<span class="nc" id="L365">                excpIndex[i] = new int[exceptionTypes.length];</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">                for (int j = 0; j &lt; exceptionTypes.length; j++) {</span>
+<span class="nc" id="L367">                    constantPool = Bytecode.addUtf8(constantPool, exceptionTypes[j].getName().replace('.', '/'));</span>
+<span class="nc" id="L368">                    constantPool = Bytecode.addClass(constantPool, (short) (BASECPCOUNT + cpCount));</span>
+<span class="nc" id="L369">                    excpIndex[i][j] = BASECPCOUNT + cpCount + 1;</span>
+<span class="nc" id="L370">                    cpCount += 2;</span>
+                }
+            } /* End for */
+            /* end constant pool */
+
+            /* ************************************************************************************************ */
+            // put the Class byte array together
+
+            /* start */
+<span class="fc" id="L379">            byte[] newClass = CLASSHEADER; // magic, version (fixed)</span>
+<span class="fc" id="L380">            final short count = (short) (BASECPCOUNT + cpCount);</span>
+<span class="fc" id="L381">            newClass = ByteUtility.addBytes(newClass, count); // constant_pool_count (variable)</span>
+<span class="fc" id="L382">            newClass = ByteUtility.addBytes(newClass, BASECP); // constant_pool (fixed)</span>
+<span class="fc" id="L383">            newClass = ByteUtility.addBytes(newClass, constantPool); // constant_pool (variable)</span>
+<span class="fc" id="L384">            newClass = ByteUtility.addBytes(newClass, FIXEDCLASSBYTES); // see FIXEDCLASSBYTES (fixed)</span>
+<span class="fc" id="L385">            newClass = ByteUtility.addBytes(newClass, (short) (lms.length + 1)); // method_count (variable)</span>
+<span class="fc" id="L386">            newClass = ByteUtility.addBytes(newClass, INITMETHOD); // constructor &lt;init&gt; (fixed)</span>
+            // methods
+
+            /* ****************************************************************************************** */
+            /* loop over listener methods from listenerType */
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">            for (int i = 0; i &lt; lms.length; ++i) {</span>
+<span class="nc" id="L392">                newClass = ByteUtility.addBytes(newClass, (short) 1); // access_flags (fixed)</span>
+<span class="nc" id="L393">                newClass = ByteUtility.addBytes(newClass, (short) (cpBaseIndex + 3 * i + 0)); // name_index (variable)</span>
+<span class="nc" id="L394">                newClass = ByteUtility.addBytes(newClass, (short) (cpBaseIndex + 3 * i + 1)); // descriptor_index (variable)</span>
+<span class="nc" id="L395">                newClass = ByteUtility.addBytes(newClass, (short) 1); // attribute_count (fixed)</span>
+<span class="nc" id="L396">                newClass = ByteUtility.addBytes(newClass, (short) 3); // attribute_name_index code(fixed)</span>
+
+                // Code Attribute Length
+<span class="nc" id="L399">                int length = 32;</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">                if (0 &lt; excpIndex[i].length) {</span>
+<span class="nc" id="L401">                    length += 5 + 8 * (1 + excpIndex[i].length);</span>
+                }
+<span class="nc bnc" id="L403" title="All 2 branches missed.">                if (propertyChangeFlag[i]) {</span>
+<span class="nc" id="L404">                    length += 2;</span>
+                }
+<span class="nc" id="L406">                newClass = ByteUtility.addBytes(newClass, (long) length); // attribute_length (variable)</span>
+
+                // start code attribute
+<span class="nc" id="L409">                newClass = ByteUtility.addBytes(newClass, (short) 6); // max_stack (fixed)</span>
+<span class="nc" id="L410">                newClass = ByteUtility.addBytes(newClass, (short) 3); // max_locals (fixed)</span>
+
+                // Code Length
+<span class="nc" id="L413">                length = 20;</span>
+<span class="nc bnc" id="L414" title="All 4 branches missed.">                if (exceptionable &amp;&amp; 0 &lt; excpIndex[i].length) {</span>
+<span class="nc" id="L415">                    length += 5;</span>
+                }
+<span class="nc bnc" id="L417" title="All 2 branches missed.">                if (propertyChangeFlag[i]) {</span>
+<span class="nc" id="L418">                    length += 2;</span>
+                }
+<span class="nc" id="L420">                newClass = ByteUtility.addBytes(newClass, (long) length); // code_length (variable)</span>
+
+                // start code
+<span class="nc" id="L423">                newClass = ByteUtility.addBytes(newClass, (byte) 0x2A); // aload_0 (fixed)</span>
+<span class="nc" id="L424">                newClass = ByteUtility.addBytes(newClass, (byte) 0xB4); // getfield (fixed)</span>
+<span class="nc" id="L425">                newClass = ByteUtility.addBytes(newClass, (short) 15); // index (fixed)</span>
+
+<span class="nc bnc" id="L427" title="All 2 branches missed.">                if (propertyChangeFlag[i]) { // the propertyName is passed as the first parameter</span>
+<span class="nc" id="L428">                    newClass = ByteUtility.addBytes(newClass, (byte) 0x2B); // aload_1 (fixed)</span>
+<span class="nc" id="L429">                    newClass = ByteUtility.addBytes(newClass, (byte) 0xB6); // invokevirtual (fixed)</span>
+<span class="nc" id="L430">                    newClass = ByteUtility.addBytes(newClass, (short) cpIndexPCE); // methodref (variable)</span>
+                } else { // the eventMethodName is passed as the first parameter
+                         // Target for method invocation.
+<span class="nc" id="L433">                    newClass = ByteUtility.addBytes(newClass, (byte) 0x12); // ldc (fixed)</span>
+<span class="nc" id="L434">                    newClass = ByteUtility.addBytes(newClass, (byte) (cpBaseIndex + 3 * i + 2)); // index (byte) (variable)</span>
+                }
+
+<span class="nc" id="L437">                newClass = ByteUtility.addBytes(newClass, (byte) 0x04); // iconst_1 (fixed)</span>
+<span class="nc" id="L438">                newClass = ByteUtility.addBytes(newClass, (byte) 0xBD); // anewarray (fixed)</span>
+<span class="nc" id="L439">                newClass = ByteUtility.addBytes(newClass, (short) 10); // Class java/lang/Object (fixed)</span>
+<span class="nc" id="L440">                newClass = ByteUtility.addBytes(newClass, (byte) 0x59); // dup (fixed)</span>
+<span class="nc" id="L441">                newClass = ByteUtility.addBytes(newClass, (byte) 0x03); // iconst_0 (fixed)</span>
+<span class="nc" id="L442">                newClass = ByteUtility.addBytes(newClass, (byte) 0x2B); // aload_1 (fixed)</span>
+<span class="nc" id="L443">                newClass = ByteUtility.addBytes(newClass, (byte) 0x53); // aastore (fixed)</span>
+<span class="nc" id="L444">                newClass = ByteUtility.addBytes(newClass, (byte) 0xB9); // invokeinterface (fixed)</span>
+
+                // index to processEvent or processExceptionableEvent method
+<span class="nc" id="L447">                length = 23; // actually an index into cp</span>
+<span class="nc bnc" id="L448" title="All 4 branches missed.">                if (exceptionable &amp;&amp; nonExceptionable) { // interface method index</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">                    if (0 &lt; lms[i].getExceptionTypes().length) {</span>
+<span class="nc" id="L450">                        length += 5;</span>
+                    }
+<span class="nc bnc" id="L452" title="All 2 branches missed.">                } else if (exceptionable) {</span>
+<span class="nc" id="L453">                    length += 2;</span>
+                }
+<span class="nc" id="L455">                newClass = ByteUtility.addBytes(newClass, (short) length); // index (process??????...) (variable)</span>
+
+<span class="nc" id="L457">                newClass = ByteUtility.addBytes(newClass, (byte) 0x03); // iconst_0 (fixed)</span>
+<span class="nc" id="L458">                newClass = ByteUtility.addBytes(newClass, (byte) 0x00); // noop (fixed)</span>
+<span class="nc" id="L459">                newClass = ByteUtility.addBytes(newClass, (byte) 0xB1); // return (fixed)</span>
+
+<span class="nc bnc" id="L461" title="All 4 branches missed.">                if (exceptionable &amp;&amp; 0 &lt; excpIndex[i].length) { // exception code</span>
+<span class="nc" id="L462">                    newClass = ByteUtility.addBytes(newClass, (byte) 0x4D); // astore_2 (fixed)</span>
+<span class="nc" id="L463">                    newClass = ByteUtility.addBytes(newClass, (byte) 0x2C); // aload_2 (fixed)</span>
+<span class="nc" id="L464">                    newClass = ByteUtility.addBytes(newClass, (byte) 0xBF); // athrow (fixed)</span>
+<span class="nc" id="L465">                    newClass = ByteUtility.addBytes(newClass, (byte) 0x57); // pop (fixed)</span>
+<span class="nc" id="L466">                    newClass = ByteUtility.addBytes(newClass, (byte) 0xB1); // return (fixed)</span>
+                    // end code
+
+                    // exception table
+<span class="nc" id="L470">                    length = excpIndex[i].length;</span>
+<span class="nc" id="L471">                    newClass = ByteUtility.addBytes(newClass, (short) (1 + length)); // exception_table_length (variable)</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">                    for (int j = 0; j &lt; length; j++) { // catch exception types and rethrow</span>
+<span class="nc" id="L473">                        newClass = ByteUtility.addBytes(newClass, (short) 0); // start_pc (fixed)</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">                        if (propertyChangeFlag[i]) {</span>
+<span class="nc" id="L475">                            newClass = ByteUtility.addBytes(newClass, (short) 21); // end_pc (fixed)</span>
+<span class="nc" id="L476">                            newClass = ByteUtility.addBytes(newClass, (short) 22); // handler_pc (fixed)</span>
+                        } else {
+<span class="nc" id="L478">                            newClass = ByteUtility.addBytes(newClass, (short) 19); // end_pc (fixed)</span>
+<span class="nc" id="L479">                            newClass = ByteUtility.addBytes(newClass, (short) 20); // handler_pc (fixed)</span>
+                        }
+<span class="nc" id="L481">                        newClass = ByteUtility.addBytes(newClass, (short) excpIndex[i][j]); // catch_type (variable)</span>
+                    }
+                    // catch &quot;exception&quot; and trap it
+<span class="nc" id="L484">                    newClass = ByteUtility.addBytes(newClass, (short) 0); // start_pc (fixed)</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">                    if (propertyChangeFlag[i]) {</span>
+<span class="nc" id="L486">                        newClass = ByteUtility.addBytes(newClass, (short) 21); // end_pc (fixed)</span>
+<span class="nc" id="L487">                        newClass = ByteUtility.addBytes(newClass, (short) 25); // handler_pc (fixed)</span>
+                    } else {
+<span class="nc" id="L489">                        newClass = ByteUtility.addBytes(newClass, (short) 19); // end_pc (fixed)</span>
+<span class="nc" id="L490">                        newClass = ByteUtility.addBytes(newClass, (short) 23); // handler_pc (fixed)</span>
+                    }
+<span class="nc bnc" id="L492" title="All 2 branches missed.">                    if (nonExceptionable) {</span>
+<span class="nc" id="L493">                        newClass = ByteUtility.addBytes(newClass, (short) 26);</span>
+                    } // catch_type (fixed)
+                    else // or
+                    {
+<span class="nc" id="L497">                        newClass = ByteUtility.addBytes(newClass, (short) 23);</span>
+                    } // catch_type (fixed)
+                } else {
+<span class="nc" id="L500">                    newClass = ByteUtility.addBytes(newClass, (short) 0);</span>
+                } // exception_table_length (fixed)
+                // attributes on the code attribute (none)
+<span class="nc" id="L503">                newClass = ByteUtility.addBytes(newClass, (short) 0); // attribute_count (fixed)</span>
+                // end code attribute
+
+            } /* End for */
+            // Class Attributes (none for this)
+<span class="fc" id="L508">            newClass = ByteUtility.addBytes(newClass, (short) 0); // attribute_count (fixed)</span>
+            /* done */
+
+<span class="fc" id="L511">            logger.debug(&quot;adapterName: &quot; + finalAdapterClassName);</span>
+<span class="fc" id="L512">            logger.debug(&quot;cpCount: &quot; + count + &quot; = &quot; + BASECPCOUNT + &quot; + &quot; + cpCount);</span>
+<span class="fc" id="L513">            logger.debug(&quot;methodCount: &quot; + (lms.length + 1));</span>
+            // output to disk class file
+            /* ****************************************************************************************** */
+
+            // now create the class and load it
+            // return the Class.
+
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">            if (writeClassFile) {</span>
+                try {
+                    // removed &quot;WRITEDIRECTORY+&quot;, as this path is already part of 'finalAdapterClassName'
+<span class="nc" id="L523">                    final FileOutputStream fos = new FileOutputStream(finalAdapterClassName + &quot;.class&quot;);</span>
+<span class="nc" id="L524">                    fos.write(newClass);</span>
+<span class="nc" id="L525">                    fos.close();</span>
+<span class="nc" id="L526">                } catch (final IOException ex) {</span>
+<span class="nc" id="L527">                    System.err.println(ex.getMessage());</span>
+<span class="nc" id="L528">                    ex.printStackTrace();</span>
+<span class="nc" id="L529">                }</span>
+
+                try {
+<span class="nc" id="L532">                    final Class ret = ldr.loadClass(finalAdapterClassName);</span>
+<span class="nc" id="L533">                    logger.debug(&quot;EventAdapterGenerator: &quot; + ret.getName() + &quot; dynamically generated&quot;);</span>
+<span class="nc" id="L534">                    return ret;</span>
+<span class="nc" id="L535">                } catch (final ClassNotFoundException ex) {</span>
+<span class="nc" id="L536">                    System.err.println(ex.getMessage());</span>
+<span class="nc" id="L537">                    ex.printStackTrace();</span>
+                }
+            }
+
+            try {
+<span class="fc" id="L542">                final Class ret = ldr.defineClass(finalAdapterClassName, newClass);</span>
+<span class="fc" id="L543">                logger.debug(&quot;EventAdapterGenerator: &quot; + ret.getName() + &quot; dynamically generated&quot;);</span>
+<span class="fc" id="L544">                return ret;</span>
+            }
+
+<span class="nc" id="L547">            catch (final Throwable ex) // rgf, 2012-01-15</span>
+            {
+<span class="nc" id="L549">                System.err.println(ex.getMessage());</span>
+<span class="nc" id="L550">                ex.printStackTrace();</span>
+            }
+        }
+<span class="nc" id="L553">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

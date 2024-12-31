@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JaclEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.engines.jacl</a> &gt; <span class="el_source">JaclEngine.java</span></div><h1>JaclEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.engines.jacl;
+
+import java.util.Vector;
+
+import org.apache.bsf.BSFDeclaredBean;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.util.BSFEngineImpl;
+
+import tcl.lang.Interp;
+import tcl.lang.ReflectObject;
+import tcl.lang.TclDouble;
+import tcl.lang.TclException;
+import tcl.lang.TclInteger;
+import tcl.lang.TclObject;
+import tcl.lang.TclString;
+
+/**
+ * This is the interface to Scriptics's Jacl (Tcl) from the Bean Scripting Framework.
+ * &lt;p&gt;
+ */
+
+<span class="nc" id="L40">public class JaclEngine extends BSFEngineImpl {</span>
+    /* the Jacl interpretor object */
+    private Interp interp;
+
+    /**
+     *
+     * @param method The name of the method to call.
+     * @param args   an array of arguments to be passed to the extension, which may be either Vectors of Nodes, or Strings.
+     */
+    public Object call(final Object obj, final String method, final Object[] args) throws BSFException {
+<span class="nc" id="L50">        final StringBuilder tclScript = new StringBuilder(method);</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (args != null) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="nc" id="L53">                tclScript.append(&quot; &quot;);</span>
+<span class="nc" id="L54">                tclScript.append(args[i].toString());</span>
+            }
+        }
+<span class="nc" id="L57">        return eval(&quot;&lt;function call&gt;&quot;, 0, 0, tclScript.toString());</span>
+    }
+
+    /**
+     * Declare a bean
+     */
+    public void declareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="nc" id="L64">        final String expr = &quot;set &quot; + bean.name + &quot; [bsf lookupBean \&quot;&quot; + bean.name + &quot;\&quot;]&quot;;</span>
+<span class="nc" id="L65">        eval(&quot;&lt;declare bean&gt;&quot;, 0, 0, expr);</span>
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * This is used by an application to evaluate a string containing some expression.
+     */
+    public Object eval(final String source, final int lineNo, final int columnNo, final Object oscript) throws BSFException {
+<span class="nc" id="L72">        final String script = oscript.toString();</span>
+        try {
+<span class="nc" id="L74">            interp.eval(script);</span>
+<span class="nc" id="L75">            final TclObject result = interp.getResult();</span>
+<span class="nc" id="L76">            final Object internalRep = result.getInternalRep();</span>
+
+            // if the object has a corresponding Java type, unwrap it
+<span class="nc bnc" id="L79" title="All 2 branches missed.">            if (internalRep instanceof ReflectObject) {</span>
+<span class="nc" id="L80">                return ReflectObject.get(interp, result);</span>
+            }
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            if (internalRep instanceof TclString) {</span>
+<span class="nc" id="L83">                return result.toString();</span>
+            }
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (internalRep instanceof TclDouble) {</span>
+<span class="nc" id="L86">                return new Double(TclDouble.get(interp, result));</span>
+            }
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            if (internalRep instanceof TclInteger) {</span>
+<span class="nc" id="L89">                return new Integer(TclInteger.get(interp, result));</span>
+            }
+
+<span class="nc" id="L92">            return result;</span>
+<span class="nc" id="L93">        } catch (final TclException e) {</span>
+<span class="nc" id="L94">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;error while eval'ing Jacl expression: &quot; + interp.getResult(), e);</span>
+        }
+    }
+
+    /**
+     * Initialize the engine.
+     */
+    public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {
+<span class="nc" id="L102">        super.initialize(mgr, lang, declaredBeans);</span>
+
+        // create interpreter
+<span class="nc" id="L105">        interp = new Interp();</span>
+
+        // register the extension that user's can use to get at objects
+        // registered by the app
+<span class="nc" id="L109">        interp.createCommand(&quot;bsf&quot;, new BSFCommand(mgr, this));</span>
+
+        // Make java functions be available to Jacl
+        try {
+<span class="nc" id="L113">            interp.eval(&quot;jaclloadjava&quot;);</span>
+<span class="nc" id="L114">        } catch (final TclException e) {</span>
+<span class="nc" id="L115">            throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;error while loading java package: &quot; + interp.getResult(), e);</span>
+<span class="nc" id="L116">        }</span>
+
+<span class="nc" id="L118">        final int size = declaredBeans.size();</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L120">            declareBean((BSFDeclaredBean) declaredBeans.elementAt(i));</span>
+        }
+<span class="nc" id="L122">    }</span>
+
+    /**
+     * Undeclare a previously declared bean.
+     */
+    public void undeclareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="nc" id="L128">        eval(&quot;&lt;undeclare bean&gt;&quot;, 0, 0, &quot;set &quot; + bean.name + &quot; \&quot;\&quot;&quot;);</span>
+<span class="nc" id="L129">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

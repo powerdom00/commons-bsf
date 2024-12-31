@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MethodUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">MethodUtils.java</span></div><h1>MethodUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Enumeration;
+import java.util.Vector;
+
+/**
+ * This file is a collection of reflection utilities for dealing with methods and constructors.
+ */
+<span class="fc" id="L29">public class MethodUtils {</span>
+
+    /**
+     * Internal Class for getEntryPoint(). Implements 15.11.2.2 MORE SPECIFIC rules.
+     * 
+     * Retains a list of methods (already known to match the arguments). As each method is added, we check against past entries to determine which if any is
+     * &quot;more specific&quot; -- defined as having _all_ its arguments (not just a preponderance) be method-convertable into those of another. If such a relationship
+     * is found, the more-specific method is retained and the less-specific method is discarded. At the end, if this has yielded a single winner it is
+     * considered the Most Specific Method and hence the one that should be invoked. Otherwise, a NoSuchMethodException is thrown.
+     * 
+     * PERFORMANCE VERSUS ARCHITECTURE: Arguably, this should &quot;have-a&quot; Vector. But the code is 6% smaller, and possibly faster, if we code it as &quot;is-a&quot; Vector.
+     * Since it's an inner class, nobody's likely to abuse the privilage.
+     * 
+     * Note: &quot;Static&quot; in the case of an inner class means &quot;Does not reference instance data in the outer class&quot;, and is required since our caller is a static
+     * method.
+     */
+    private static class MoreSpecific extends Vector {
+        /**
+         * Submit an entry-point to the list. May be discarded if a past entry is more specific, or may cause others to be discarded it if is more specific.
+         * 
+         * newEntry: Method or Constructor under consideration.
+         */
+        void addItem(final Object newEntry) {
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">            if (size() == 0) {</span>
+<span class="fc" id="L53">                addElement(newEntry);</span>
+            } else {
+<span class="nc" id="L55">                final Class[] newargs = entryGetParameterTypes(newEntry);</span>
+<span class="nc" id="L56">                boolean keep = true;</span>
+<span class="nc" id="L57">                final Enumeration e = elements();</span>
+<span class="nc" id="L58">                boolean moreElements = e.hasMoreElements();</span>
+<span class="nc bnc" id="L59" title="All 4 branches missed.">                while (keep &amp;&amp; moreElements) {</span>
+<span class="nc" id="L60">                    final Object oldEntry = e.nextElement();</span>
+                    // CAVEAT: Implicit references to enclosing class!
+<span class="nc" id="L62">                    final Class[] oldargs = entryGetParameterTypes(oldEntry);</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">                    if (areMethodConvertable(oldargs, newargs)) {</span>
+<span class="nc" id="L64">                        removeElement(oldEntry); // New more specific; discard old</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">                    } else if (areMethodConvertable(newargs, oldargs)) {</span>
+<span class="nc" id="L66">                        keep = false; // Old more specific; discard new</span>
+                        // Else they're tied. Keep both and hope someone beats both.
+                    }
+<span class="nc" id="L69">                    moreElements = e.hasMoreElements();</span>
+<span class="nc" id="L70">                }</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">                if (keep) {</span>
+<span class="nc" id="L72">                    addElement(newEntry);</span>
+                }
+            }
+<span class="fc" id="L75">        }</span>
+
+        /**
+         * Obtain the single Most Specific entry-point. If there is no clear winner, or if the list is empty, throw NoSuchMethodException.
+         * 
+         * Arguments describe the call we were hoping to resolve. They are used to throw a nice verbose exception if something goes wrong.
+         */
+        Object getMostSpecific(final Class targetClass, final String methodName, final Class[] argTypes, final boolean isStaticReference)
+                throws NoSuchMethodException {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (size() == 1) {</span>
+<span class="fc" id="L85">                return firstElement();</span>
+            }
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">            if (size() &gt; 1) {</span>
+<span class="nc" id="L88">                final StringBuilder buf = new StringBuilder();</span>
+<span class="nc" id="L89">                final Enumeration e = elements();</span>
+<span class="nc" id="L90">                buf.append(e.nextElement());</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                while (e.hasMoreElements()) {</span>
+<span class="nc" id="L92">                    buf.append(&quot; and &quot;).append(e.nextElement());</span>
+                }
+<span class="nc" id="L94">                throw new NoSuchMethodException(</span>
+<span class="nc" id="L95">                        callToString(targetClass, methodName, argTypes, isStaticReference) + &quot; is ambiguous. It matches &quot; + buf.toString());</span>
+            }
+<span class="fc" id="L97">            return null;</span>
+        }
+    }
+
+    /**
+     * Convenience method: Test an entire parameter-list/argument-list pair for isMethodConvertable(), qv.
+     */
+    static private boolean areMethodConvertable(final Class[] parms, final Class[] args) {
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (parms.length != args.length) {</span>
+<span class="fc" id="L106">            return false;</span>
+        }
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for (int i = 0; i &lt; parms.length; ++i) {</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">            if (!isMethodConvertable(parms[i], args[i])) {</span>
+<span class="nc" id="L111">                return false;</span>
+            }
+        }
+
+<span class="fc" id="L115">        return true;</span>
+    }
+
+    /**
+     * Internal subroutine for getEntryPoint(): Format arguments as a string describing the function being searched for. Used in verbose exceptions.
+     */
+    private static String callToString(final Class targetClass, final String methodName, final Class[] argTypes, final boolean isStaticReference) {
+<span class="fc" id="L122">        final StringBuilder buf = new StringBuilder();</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (isStaticReference) {</span>
+<span class="nc" id="L124">            buf.append(&quot;static &quot;);</span>
+        }
+<span class="fc" id="L126">        buf.append(StringUtils.getClassName(targetClass));</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        if (methodName != null) {</span>
+<span class="fc" id="L128">            buf.append(&quot;.&quot;).append(methodName);</span>
+        }
+<span class="fc" id="L130">        buf.append(&quot;(&quot;);</span>
+<span class="pc bpc" id="L131" title="1 of 4 branches missed.">        if (argTypes != null &amp;&amp; argTypes.length &gt; 0) {</span>
+            if (false) {
+                // ????? Sanjiva has an ArrayToString method. Using it would
+                // save a few bytes, at cost of giving up some reusability.
+            } else {
+<span class="fc" id="L136">                buf.append(StringUtils.getClassName(argTypes[0]));</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">                for (int i = 1; i &lt; argTypes.length; i++) {</span>
+<span class="fc" id="L138">                    buf.append(&quot;,&quot;).append(StringUtils.getClassName(argTypes[i]));</span>
+                }
+            }
+        } else {
+<span class="fc" id="L142">            buf.append(&quot;[none]&quot;);</span>
+        }
+<span class="fc" id="L144">        buf.append(&quot;)&quot;);</span>
+<span class="fc" id="L145">        return buf.toString();</span>
+    }
+
+    /**
+     * Utility function: obtain common data from either Method or Constructor. (In lieu of an EntryPoint interface.)
+     */
+    static int entryGetModifiers(final Object entry) {
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        return (entry instanceof Method) ? ((Method) entry).getModifiers() : ((Constructor) entry).getModifiers();</span>
+    }
+    // The common lookup code would be much easier if Method and
+    // Constructor shared an &quot;EntryPoint&quot; Interface. Unfortunately, even
+    // though their APIs are almost identical, they don't. These calls
+    // are a workaround... at the cost of additional runtime overhead
+    // and some extra bytecodes.
+    //
+    // (A JDK bug report has been submitted requesting that they add the
+    // Interface; it would be easy, harmless, and useful.)
+
+    /**
+     * Utility function: obtain common data from either Method or Constructor. (In lieu of an EntryPoint interface.)
+     */
+    static String entryGetName(final Object entry) {
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        return (entry instanceof Method) ? ((Method) entry).getName() : ((Constructor) entry).getName();</span>
+    }
+
+    /**
+     * Utility function: obtain common data from either Method or Constructor. (In lieu of an EntryPoint interface.)
+     */
+    static Class[] entryGetParameterTypes(final Object entry) {
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        return (entry instanceof Method) ? ((Method) entry).getParameterTypes() : ((Constructor) entry).getParameterTypes();</span>
+    }
+
+    /**
+     * Utility function: obtain common data from either Method or Constructor. (In lieu of an EntryPoint interface.)
+     */
+    static String entryToString(final Object entry) {
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        return (entry instanceof Method) ? ((Method) entry).toString() : ((Constructor) entry).toString();</span>
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Class.getConstructor() finds only the entry point (if any) _exactly_ matching the specified argument types. Our implmentation can decide between several
+     * imperfect matches, using the same search algorithm as the Java compiler.
+     * 
+     * Note that all constructors are static by definition, so isStaticReference is true.
+     * 
+     * @exception NoSuchMethodException if constructor not found.
+     */
+    static public Constructor getConstructor(final Class targetClass, final Class[] argTypes) throws SecurityException, NoSuchMethodException {
+<span class="fc" id="L194">        return (Constructor) getEntryPoint(targetClass, null, argTypes, true);</span>
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Search for entry point, per Java Language Spec 1.0 as amended, verified by comparison against compiler behavior.
+     *
+     * @param targetClass       Class object for the class to be queried.
+     * @param methodName        Name of method to invoke, or null for constructor. Only Public methods will be accepted.
+     * @param argTypes          Classes of intended arguments. Note that primitives must be specified via their TYPE equivalents, rather than as their wrapper
+     *                          classes -- Integer.TYPE rather than Integer. &quot;null&quot; may be passed in as an indication that you intend to invoke the method with
+     *                          a literal null argument and therefore can accept any object type in this position.
+     * @param isStaticReference If true, and if the target is a Class object, only static methods will be accepted as valid matches.
+     *
+     * @return a Method or Constructor of the appropriate signature
+     *
+     * @exception SecurityException     if security violation
+     * @exception NoSuchMethodException if no such method
+     */
+    static private Object getEntryPoint(final Class targetClass, final String methodName, final Class[] argTypes, final boolean isStaticReference)
+            throws SecurityException, NoSuchMethodException {
+        // 15.11.1: OBTAIN STARTING CLASS FOR SEARCH
+<span class="fc" id="L216">        Object m = null;</span>
+
+        // 15.11.2 DETERMINE ARGUMENT SIGNATURE
+        // (Passed in as argTypes array.)
+
+        // Shortcut: If an exact match exists, return it.
+        try {
+<span class="fc bfc" id="L223" title="All 2 branches covered.">            if (methodName != null) {</span>
+<span class="fc" id="L224">                m = targetClass.getMethod(methodName, argTypes);</span>
+<span class="pc bpc" id="L225" title="3 of 4 branches missed.">                if (isStaticReference &amp;&amp; !Modifier.isStatic(entryGetModifiers(m))) {</span>
+<span class="nc" id="L226">                    throw new NoSuchMethodException(callToString(targetClass, methodName, argTypes, isStaticReference) + &quot; resolved to instance &quot; + m);</span>
+                }
+<span class="fc" id="L228">                return m;</span>
+            } else {
+<span class="fc" id="L230">                return targetClass.getConstructor(argTypes);</span>
+            }
+
+<span class="fc" id="L233">        } catch (final NoSuchMethodException e) {</span>
+            // no-args has no alternatives!
+<span class="pc bpc" id="L235" title="1 of 4 branches missed.">            if (argTypes == null || argTypes.length == 0) {</span>
+<span class="fc" id="L236">                throw new NoSuchMethodException(callToString(targetClass, methodName, argTypes, isStaticReference) + &quot; not found.&quot;);</span>
+            }
+            // Else fall through.
+        }
+
+        // Well, _that_ didn't work. Time to search for the Most Specific
+        // matching function. NOTE that conflicts are possible!
+
+        // 15.11.2.1 ACCESSIBLE: We apparently need to gather from two
+        // sources to be sure we have both instance and static methods.
+        Object[] methods;
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        if (methodName != null) {</span>
+<span class="fc" id="L248">            methods = targetClass.getMethods();</span>
+        } else {
+<span class="nc" id="L250">            methods = targetClass.getConstructors();</span>
+        }
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">        if (0 == methods.length) {</span>
+<span class="nc" id="L253">            throw new NoSuchMethodException(&quot;No methods!&quot;);</span>
+        }
+
+<span class="fc" id="L256">        final MoreSpecific best = new MoreSpecific();</span>
+<span class="fc bfc" id="L257" title="All 2 branches covered.">        for (int i = 0; i &lt; methods.length; ++i) {</span>
+<span class="fc" id="L258">            final Object mi = methods[i];</span>
+<span class="fc" id="L259">            if (</span>
+            // 15.11.2.1 ACCESSIBLE: Method is public.
+<span class="pc bpc" id="L261" title="2 of 4 branches missed.">            Modifier.isPublic(entryGetModifiers(mi)) &amp;&amp;</span>
+            // 15.11.2.1 APPLICABLE: Right method name (or constructor)
+<span class="fc bfc" id="L263" title="All 2 branches covered.">                    (methodName == null || entryGetName(mi).equals(methodName)) &amp;&amp;</span>
+                    // 15.11.2.1 APPLICABLE: Parameters match arguments
+<span class="fc bfc" id="L265" title="All 2 branches covered.">                    areMethodConvertable(entryGetParameterTypes(mi), argTypes)) {</span>
+                // 15.11.2.2 MORE SPECIFIC displace less specific.
+<span class="fc" id="L267">                best.addItem(mi);</span>
+            }
+        }
+
+        // May throw NoSuchMethodException; we pass in info needed to
+        // create a useful exception
+<span class="fc" id="L273">        m = best.getMostSpecific(targetClass, methodName, argTypes, isStaticReference);</span>
+
+        // 15.11.3 APPROPRIATE: Class invocation can call only static
+        // methods. Note that the defined order of evaluation permits a
+        // call to be resolved to an inappropriate method and then
+        // rejected, rather than finding the best of the appropriate
+        // methods.
+        //
+        // Constructors are never static, so we don't test them.
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (m == null) {</span>
+<span class="fc" id="L283">            throw new NoSuchMethodException(callToString(targetClass, methodName, argTypes, isStaticReference) + &quot; -- no signature match&quot;);</span>
+        }
+
+<span class="pc bpc" id="L286" title="4 of 6 branches missed.">        if (methodName != null &amp;&amp; isStaticReference &amp;&amp; !Modifier.isStatic(entryGetModifiers(m))) {</span>
+<span class="nc" id="L287">            throw new NoSuchMethodException(callToString(targetClass, methodName, argTypes, isStaticReference) + &quot; resolved to instance: &quot; + m);</span>
+        }
+
+<span class="fc" id="L290">        return m;</span>
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /*
+     * Class.getMethod() finds only the entry point (if any) _exactly_ matching the specified argument types. Our implmentation can decide between several
+     * imperfect matches, using the same search algorithm as the Java compiler.
+     * 
+     * This version more closely resembles Class.getMethod() -- we always ask the Class for the method. It differs in testing for appropriateness before
+     * returning the method; if the query is being made via a static reference, only static methods will be found and returned.
+     */
+    static public Method getMethod(final Class target, final String methodName, final Class[] argTypes, final boolean isStaticReference)
+            throws SecurityException, NoSuchMethodException {
+<span class="fc" id="L303">        return (Method) getEntryPoint(target, methodName, argTypes, isStaticReference);</span>
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Class.getMethod() finds only the entry point (if any) _exactly_ matching the specified argument types. Our implmentation can decide between several
+     * imperfect matches, using the same search algorithm as the Java compiler.
+     *
+     * This version emulates the compiler behavior by allowing lookup to be performed against either a class or an instance -- classname.foo() must be a static
+     * method call, instance.foo() can invoke either static or instance methods.
+     *
+     * @param target     object on which call is to be made
+     * @param methodName name of method I'm lookin' for
+     * @param argTypes   array of argument types of method
+     *
+     * @return the desired method
+     *
+     * @exception SecurityException     if security violation
+     * @exception NoSuchMethodException if no such method
+     */
+    static public Method getMethod(final Object target, final String methodName, final Class[] argTypes) throws SecurityException, NoSuchMethodException {
+<span class="nc" id="L324">        final boolean staticRef = target instanceof Class;</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        return getMethod(staticRef ? (Class) target : target.getClass(), methodName, argTypes, staticRef);</span>
+    }
+
+    /**
+     * Determine whether a given type can accept assignments of another type. Note that class.isAssignable() is _not_ a complete test! (This method is not
+     * needed by getMethod() or getConstructor(), but is provided as a convenience for other users.)
+     * 
+     * parm: The type given in the method's signature. arg: The type we want to pass in.
+     * 
+     * Legal ASSIGNMENT CONVERSIONS (5.2) are METHOD CONVERSIONS (5.3) plus implicit narrowing of int to byte, short or char.
+     */
+    static private boolean isAssignmentConvertable(final Class parm, final Class arg) {
+<span class="nc bnc" id="L337" title="All 8 branches missed.">        return (arg.equals(Integer.TYPE) &amp;&amp; (parm.equals(Byte.TYPE) || parm.equals(Short.TYPE) || parm.equals(Character.TYPE)))</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">                || isMethodConvertable(parm, arg);</span>
+    }
+
+    /**
+     * Determine whether a given method parameter type can accept arguments of another type.
+     * 
+     * parm: The type given in the method's signature. arg: The type we want to pass in.
+     * 
+     * Legal METHOD CONVERSIONS (5.3) are Identity, Widening Primitive Conversion, or Widening Reference Conversion. NOTE that this is a subset of the legal
+     * ASSIGNMENT CONVERSIONS (5.2) -- in particular, we can't implicitly narrow int to byte, short or char.
+     * 
+     * SPECIAL CASE: In order to permit invoking methods with literal &quot;null&quot; values, setting the arg Class to null will be taken as a request to match any Class
+     * type. POSSIBLE PROBLEM: This may match a primitive type, which really should not accept a null value... but I'm not sure how best to distinguish those,
+     * short of enumerating them
+     */
+    static private boolean isMethodConvertable(Class parm, Class arg) {
+<span class="fc bfc" id="L354" title="All 2 branches covered.">        if (parm.equals(arg)) {</span>
+<span class="fc" id="L355">            return true;</span>
+        }
+
+        // Accept any type EXCEPT primitives (which can't have null values).
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        if (arg == null) {</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">            return !parm.isPrimitive();</span>
+        }
+
+        // Arrays are convertable if their elements are convertable
+        // ????? Does this have to be done before isAssignableFrom, or
+        // does it successfully handle arrays of primatives?
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        while (parm.isArray()) {</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">            if (!arg.isArray()) {</span>
+<span class="nc" id="L368">                return false; // Unequal array depth</span>
+            } else {
+<span class="nc" id="L370">                parm = parm.getComponentType();</span>
+<span class="nc" id="L371">                arg = arg.getComponentType();</span>
+            }
+        }
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">        if (arg.isArray()) {</span>
+<span class="nc" id="L375">            return false; // Unequal array depth</span>
+        }
+
+        // Despite its name, the 1.1.6 docs say that this function does
+        // NOT return true for all legal ASSIGNMENT CONVERSIONS
+        // (5.2):
+        // &quot;Specifically, this method tests whether the type
+        // represented by the specified class can be converted
+        // to the type represented by this Class object via
+        // an identity conversion or via a widening reference
+        // conversion.&quot;
+<span class="pc bpc" id="L386" title="1 of 2 branches missed.">        if (parm.isAssignableFrom(arg)) {</span>
+<span class="fc" id="L387">            return true;</span>
+        }
+
+        // That leaves us the Widening Primitives case. Four possibilities:
+        // void (can only convert to void), boolean (can only convert to boolean),
+        // numeric (which are sequenced) and char (which inserts itself into the
+        // numerics by promoting to int or larger)
+
+<span class="nc bnc" id="L395" title="All 8 branches missed.">        if (parm.equals(Void.TYPE) || parm.equals(Boolean.TYPE) || arg.equals(Void.TYPE) || arg.equals(Boolean.TYPE)) {</span>
+<span class="nc" id="L396">            return false;</span>
+        }
+
+<span class="nc" id="L399">        final Class[] primTypes = { Character.TYPE, Byte.TYPE, Short.TYPE, Integer.TYPE, Long.TYPE, Float.TYPE, Double.TYPE };</span>
+        int parmscore, argscore;
+
+<span class="nc bnc" id="L402" title="All 2 branches missed.">        for (parmscore = 0; parmscore &lt; primTypes.length; ++parmscore) {</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">            if (parm.equals(primTypes[parmscore])) {</span>
+<span class="nc" id="L404">                break;</span>
+            }
+        }
+<span class="nc bnc" id="L407" title="All 2 branches missed.">        if (parmscore &gt;= primTypes.length) {</span>
+<span class="nc" id="L408">            return false; // Off the end</span>
+        }
+
+<span class="nc bnc" id="L411" title="All 2 branches missed.">        for (argscore = 0; argscore &lt; primTypes.length; ++argscore) {</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">            if (arg.equals(primTypes[argscore])) {</span>
+<span class="nc" id="L413">                break;</span>
+            }
+        }
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if (argscore &gt;= primTypes.length) {</span>
+<span class="nc" id="L417">            return false; // Off the end</span>
+        }
+
+        // OK if ordered AND NOT char-to-smaller-than-int
+<span class="nc bnc" id="L421" title="All 6 branches missed.">        return (argscore &lt; parmscore &amp;&amp; (argscore != 0 || parmscore &gt; 2));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

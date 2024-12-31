@@ -1,0 +1,78 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.jexl,JEXLEngine,211,0,18,0,48,0,18,0,9,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager,366,739,15,47,101,200,23,41,8,25
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSF_LogFactory,8,5,0,0,3,1,2,1,2,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSF_Log,381,539,21,23,130,93,24,22,3,21
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFDeclaredBean,0,12,0,0,0,5,0,1,0,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,Main,82,205,8,11,18,50,8,6,1,3
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,Main.new WindowAdapter() {...},6,0,0,0,3,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFException,0,57,2,4,0,18,2,7,0,6
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},43,0,0,0,2,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},49,0,0,0,3,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},39,0,0,0,3,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},0,29,0,0,0,3,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},0,39,0,0,0,3,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},0,33,0,0,0,2,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},0,34,0,0,0,3,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf,BSFManager.new PrivilegedExceptionAction() {...},0,34,0,0,0,3,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.cf,CFDriver,213,56,20,8,53,15,16,2,2,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.cf,CodeFormatter,146,295,30,31,33,79,23,23,2,10
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.generator,EventAdapterGenerator,747,523,61,19,153,121,41,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.generator,AdapterClassLoader,77,108,7,9,16,32,6,10,0,8
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.generator,ByteUtility,298,736,36,12,72,122,36,18,0,15
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.generator,Bytecode,11,86,0,0,2,22,2,10,2,10
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.generator,AdapterClassLoader.LocalThreadClassLoader,16,11,0,0,3,4,3,2,3,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_ContainerAdapter,22,3,0,0,4,1,2,1,2,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_FocusAdapter,22,3,0,0,4,1,2,1,2,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_AdjustmentAdapter,11,3,0,0,2,1,1,1,1,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_ItemAdapter,14,0,0,0,3,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_MouseAdapter,55,3,0,0,10,1,5,1,5,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_ComponentAdapter,44,3,0,0,8,1,4,1,4,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_KeyAdapter,36,0,0,0,7,0,4,0,4,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_TextAdapter,14,0,0,0,3,0,2,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_ActionAdapter,11,3,0,0,2,1,1,1,1,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_beans_VetoableChangeAdapter,17,3,0,0,6,1,1,1,1,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_beans_PropertyChangeAdapter,12,3,0,0,2,1,1,1,1,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_MouseMotionAdapter,22,3,0,0,4,1,2,1,2,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event.adapters,java_awt_event_WindowAdapter,80,0,0,0,15,0,8,0,8,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.java,JavaEngine.new FilenameFilter() {...},10,15,3,1,0,2,2,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.java,JavaEngine.GeneratedFile,0,24,0,0,0,8,0,1,0,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.java,JavaEngine,112,273,12,16,21,61,10,12,1,7
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.jython,JythonEngine,185,234,20,16,40,59,18,14,2,12
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.jython,JythonEngine.BSFPythonInterpreter,3,11,0,0,2,4,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),example,ExecJavascript,304,3,13,0,76,1,12,1,1,1
+Apache Commons BSF (Bean Scripting Framework),example,MathLibrary,10,53,2,2,2,16,2,11,0,11
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.jacl,JaclEngine,207,0,14,0,38,0,13,0,6,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.jacl,BSFCommand,210,0,19,0,49,0,14,0,3,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.xslt,XSLTEngine,234,0,14,0,46,0,14,0,7,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.xslt,XSLTResultNode,3,6,0,0,1,3,1,1,1,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event,EventAdapterRegistry,35,76,10,8,13,24,9,6,1,5
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.event,EventAdapterImpl,0,7,0,0,0,3,0,2,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ObjInfo,49,55,14,8,9,15,11,4,1,3
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ReflectionUtils,576,231,65,19,113,48,40,12,2,8
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,JavaUtils,25,68,2,2,9,10,3,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,BSFEventProcessor,78,24,10,0,21,9,8,1,3,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,BSFEngineImpl,197,140,16,2,30,30,15,6,6,6
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,StringUtils,229,431,27,70,51,101,25,45,2,14
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ScriptSymbolTable,22,0,4,0,7,0,4,0,2,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,BSFEventProcessorReturningEventInfos,132,27,10,0,32,10,8,1,3,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,IndentWriter,26,18,0,0,8,4,4,2,4,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,BSFClassLoader,110,0,4,0,28,0,6,0,4,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,MethodUtils,241,266,67,41,31,56,46,21,3,10
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ReflectionUtils.new Comparator() {...},19,0,0,0,3,0,3,0,3,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ReflectionUtils.new Comparator() {...},19,0,0,0,3,0,3,0,3,0
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,CodeBuffer,264,727,37,31,42,136,39,44,9,40
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,ObjectRegistry,5,66,1,5,1,16,1,7,0,5
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,IOUtils,0,34,0,2,0,9,0,4,0,3
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,BSFFunctions,24,14,0,0,6,5,3,2,3,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,Bean,0,9,0,0,0,4,0,1,0,1
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,EngineUtils,208,388,50,36,57,95,36,20,1,12
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util,MethodUtils.MoreSpecific,87,21,14,4,22,7,8,3,0,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry,18,265,3,5,4,51,5,4,2,3
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry.new TypeConvertor() {...},2,10,0,0,1,2,1,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry.new TypeConvertor() {...},45,42,22,10,12,8,17,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry.new TypeConvertor() {...},2,10,0,0,1,2,1,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry.new TypeConvertor() {...},4,11,1,1,1,2,2,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.util.type,TypeConvertorRegistry.new TypeConvertor() {...},2,8,0,0,1,2,1,2,1,2
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.javascript,JavaScriptEngine,64,227,17,17,16,54,14,10,0,7
+Apache Commons BSF (Bean Scripting Framework),org.apache.bsf.engines.javaclass,JavaClassEngine,85,0,10,0,12,0,8,0,3,0

@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JavaScriptEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.engines.javascript</a> &gt; <span class="el_source">JavaScriptEngine.java</span></div><h1>JavaScriptEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.engines.javascript;
+
+import java.util.Iterator;
+import java.util.Vector;
+
+import org.apache.bsf.BSFDeclaredBean;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.util.BSFEngineImpl;
+import org.apache.bsf.util.BSFFunctions;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.EvaluatorException;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.ImporterTopLevel;
+import org.mozilla.javascript.JavaScriptException;
+import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.WrappedException;
+import org.mozilla.javascript.Wrapper;
+
+/**
+ * This is the interface to Netscape's Rhino (JavaScript) from the Bean Scripting Framework.
+ * &lt;p&gt;
+ * The original version of this code was first written by Adam Peller for use in LotusXSL. Sanjiva took his code and adapted it for BSF.
+ */
+<span class="fc" id="L43">public class JavaScriptEngine extends BSFEngineImpl {</span>
+    /**
+     * The global script object, where all embedded functions are defined, as well as the standard ECMA &quot;core&quot; objects.
+     */
+    private Scriptable global;
+
+    /**
+     * Return an object from an extension.
+     * 
+     * @param object Object on which to make the call (ignored).
+     * @param method The name of the method to call.
+     * @param args   an array of arguments to be passed to the extension, which may be either Vectors of Nodes, or Strings.
+     */
+    public Object call(final Object object, final String method, final Object[] args) throws BSFException {
+
+<span class="fc" id="L58">        Object retval = null;</span>
+        Context cx;
+
+        try {
+<span class="fc" id="L62">            cx = Context.enter();</span>
+
+            // REMIND: convert arg list Vectors here?
+
+<span class="fc" id="L66">            final Object fun = global.get(method, global);</span>
+            // NOTE: Source and line arguments are nonsense in a call().
+            // Any way to make these arguments *sensible?
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">            if (fun == Scriptable.NOT_FOUND) {</span>
+<span class="nc" id="L70">                throw new EvaluatorException(&quot;function &quot; + method + &quot; not found.&quot;, &quot;none&quot;, 0);</span>
+            }
+
+<span class="fc" id="L73">            cx.setOptimizationLevel(-1);</span>
+<span class="fc" id="L74">            cx.setGeneratingDebug(false);</span>
+<span class="fc" id="L75">            cx.setGeneratingSource(false);</span>
+<span class="fc" id="L76">            cx.setOptimizationLevel(0);</span>
+<span class="fc" id="L77">            cx.setDebugger(null, null);</span>
+
+<span class="fc" id="L79">            retval = ((Function) fun).call(cx, global, global, args);</span>
+
+//                ScriptRuntime.call(cx, fun, global, args, global);
+
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (retval instanceof Wrapper) {</span>
+<span class="nc" id="L84">                retval = ((Wrapper) retval).unwrap();</span>
+            }
+<span class="nc" id="L86">        } catch (final Throwable t) {</span>
+<span class="nc" id="L87">            handleError(t);</span>
+        } finally {
+<span class="fc" id="L89">            Context.exit();</span>
+        }
+<span class="fc" id="L91">        return retval;</span>
+    }
+
+    public void declareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="pc bpc" id="L95" title="5 of 6 branches missed.">        if ((bean.bean instanceof Number) || (bean.bean instanceof String) || (bean.bean instanceof Boolean)) {</span>
+<span class="fc" id="L96">            global.put(bean.name, global, bean.bean);</span>
+        } else {
+            // Must wrap non-scriptable objects before presenting to Rhino
+<span class="nc" id="L99">            final Scriptable wrapped = Context.toObject(bean.bean, global);</span>
+<span class="nc" id="L100">            global.put(bean.name, global, wrapped);</span>
+        }
+<span class="fc" id="L102">    }</span>
+
+    /**
+     * This is used by an application to evaluate a string containing some expression.
+     */
+    public Object eval(final String source, final int lineNo, final int columnNo, final Object oscript) throws BSFException {
+
+<span class="fc" id="L109">        final String scriptText = oscript.toString();</span>
+<span class="fc" id="L110">        Object retval = null;</span>
+        Context cx;
+
+        try {
+<span class="fc" id="L114">            cx = Context.enter();</span>
+
+<span class="fc" id="L116">            cx.setOptimizationLevel(-1);</span>
+<span class="fc" id="L117">            cx.setGeneratingDebug(false);</span>
+<span class="fc" id="L118">            cx.setGeneratingSource(false);</span>
+<span class="fc" id="L119">            cx.setOptimizationLevel(0);</span>
+<span class="fc" id="L120">            cx.setDebugger(null, null);</span>
+
+<span class="fc" id="L122">            retval = cx.evaluateString(global, scriptText, source, lineNo, null);</span>
+
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            if (retval instanceof NativeJavaObject) {</span>
+<span class="fc" id="L125">                retval = ((NativeJavaObject) retval).unwrap();</span>
+            }
+
+<span class="fc" id="L128">        } catch (final Throwable t) { // includes JavaScriptException, rethrows Errors</span>
+<span class="nc" id="L129">            handleError(t);</span>
+        } finally {
+<span class="fc" id="L131">            Context.exit();</span>
+        }
+<span class="fc" id="L133">        return retval;</span>
+    }
+
+    private void handleError(Throwable t) throws BSFException {
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        if (t instanceof WrappedException) {</span>
+<span class="nc" id="L138">            t = ((WrappedException) t).getWrappedException();</span>
+        }
+
+<span class="fc" id="L141">        String message = null;</span>
+<span class="fc" id="L142">        Throwable target = t;</span>
+
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (t instanceof JavaScriptException) {</span>
+<span class="nc" id="L145">            message = t.getLocalizedMessage();</span>
+
+            // Is it an exception wrapped in a JavaScriptException?
+<span class="nc" id="L148">            final Object value = ((JavaScriptException) t).getValue();</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (value instanceof Throwable) {</span>
+                // likely a wrapped exception from a LiveConnect call.
+                // Display its stack trace as a diagnostic
+<span class="nc" id="L152">                target = (Throwable) value;</span>
+            }
+<span class="pc bpc" id="L154" title="2 of 4 branches missed.">        } else if (t instanceof EvaluatorException || t instanceof SecurityException) {</span>
+<span class="nc" id="L155">            message = t.getLocalizedMessage();</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        } else if (t instanceof RuntimeException) {</span>
+<span class="fc" id="L157">            message = &quot;Internal Error: &quot; + t.toString();</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        } else if (t instanceof StackOverflowError) {</span>
+<span class="nc" id="L159">            message = &quot;Stack Overflow&quot;;</span>
+        }
+
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (message == null) {</span>
+<span class="nc" id="L163">            message = t.toString();</span>
+        }
+
+<span class="pc bpc" id="L166" title="3 of 4 branches missed.">        if (t instanceof Error &amp;&amp; !(t instanceof StackOverflowError)) {</span>
+            // Re-throw Errors because we're supposed to let the JVM see it
+            // Don't re-throw StackOverflows, because we know we've
+            // corrected the situation by aborting the loop and
+            // a long stacktrace would end up on the user's console
+<span class="nc" id="L171">            throw (Error) t;</span>
+        } else {
+<span class="fc" id="L173">            throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;JavaScript Error: &quot; + message, target);</span>
+        }
+    }
+
+    /**
+     * Initialize the engine. Put the manager into the context-manager map hashtable too.
+     */
+    public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {
+
+<span class="fc" id="L182">        super.initialize(mgr, lang, declaredBeans);</span>
+
+        // Initialize context and global scope object
+        try {
+<span class="fc" id="L186">            final Context cx = Context.enter();</span>
+<span class="fc" id="L187">            global = new ImporterTopLevel(cx);</span>
+<span class="fc" id="L188">            final Scriptable bsf = Context.toObject(new BSFFunctions(mgr, this), global);</span>
+<span class="fc" id="L189">            global.put(&quot;bsf&quot;, global, bsf);</span>
+
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">            for (final Iterator it = declaredBeans.iterator(); it.hasNext();) {</span>
+<span class="nc" id="L192">                declareBean((BSFDeclaredBean) it.next());</span>
+            }
+<span class="nc" id="L194">        } catch (final Throwable t) {</span>
+
+        } finally {
+<span class="fc" id="L197">            Context.exit();</span>
+        }
+<span class="fc" id="L199">    }</span>
+
+    public void undeclareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="fc" id="L202">        global.delete(bean.name);</span>
+<span class="fc" id="L203">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

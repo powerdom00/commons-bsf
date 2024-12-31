@@ -1,0 +1,912 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BSFManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf</a> &gt; <span class="el_source">BSFManager.java</span></div><h1>BSFManager.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf;
+
+import java.beans.PropertyChangeSupport;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.MissingResourceException;
+import java.util.NoSuchElementException;
+import java.util.Properties;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+import org.apache.bsf.util.CodeBuffer;
+import org.apache.bsf.util.ObjectRegistry;
+
+// org.apache.commons.logging is delegated to &quot;org.apache.bsf.BSF_Log[Factory]&quot;
+// import org.apache.commons.logging.Log;
+// import org.apache.commons.logging.LogFactory;
+
+/**
+ * This class is the entry point to the bean scripting framework. An application wishing to integrate scripting to a Java app would place an instance of a
+ * BSFManager in their code and use its services to register the beans they want to make available for scripting, load scripting engines, and run scripts.
+ * &lt;p&gt;
+ * BSFManager serves as the registry of available scripting engines as well. Loading and unloading of scripting engines is supported as well. Each BSFManager
+ * loads one engine per language. Several BSFManagers can be created per JVM.
+ */
+
+// changed 2007-01-28: ---rgf, fixed Class.forName() to use the context class loader instead; oversaw this the last time
+/*
+ * changed 2007-09-17: ---rgf, some Java hosts do not set the Thread's context class loader and load BSF with a customized ClassLoader! Resolution: - use Thread
+ * context ClassLoader, if resource or class to load not found, then - use the BSFManager's defining ClassLoader instead, if it is different to the context
+ * ClassLoader
+ * 
+ * 2012-01-29, ---rgf, - context class loader may not be set, account for it (2009-09-10) - static constructor: fixed logic error in fallback code for
+ * getResources() (2011-01-08) 2014-12-30, ---rgf, - remove memory leak when terminating engines, cf. issue [BSF-41]
+ */
+
+public class BSFManager {
+    // version string is in the form &quot;abc.yyyymmdd&quot; where
+    // &quot;abc&quot; represents a dewey decimal number (three levels, each between 0 and 9),
+    // and &quot;yyyy&quot; a four digit year, &quot;mm&quot; a two digit month, &quot;dd&quot; a two digit day.
+    //
+    // Example: &quot;250.20120129&quot; stands for: BSF version &quot;2.5.0&quot; as of &quot;2012-01-29&quot;
+<span class="fc" id="L67">    protected static String version = &quot;250.20141230&quot;;</span>
+
+    // table of registered scripting engines
+<span class="fc" id="L70">    protected static Hashtable registeredEngines = new Hashtable();</span>
+
+    // mapping of file extensions to languages
+<span class="fc" id="L73">    protected static Hashtable extn2Lang = new Hashtable();</span>
+
+    // get the defined CL (ClassLoader which got used to define this class object) // rgf, 20070917
+    protected static ClassLoader definedClassLoader;
+    /*
+     * protected static ClassLoader appClassLoader; // application/system class loader protected static ClassLoader extClassLoader; // extension (option) class
+     * loader
+     */
+
+    /**
+     * Returns the defined ClassLoader (the ClassLoader that got used to define the org.apache.bsf.BSFManager class object).
+     * 
+     * @return the defined ClassLoader instance
+     */
+    public static ClassLoader getDefinedClassLoader() // rgf, 20070917
+    {
+<span class="fc" id="L89">        return definedClassLoader;</span>
+    }
+
+    // table of scripting engine instances created by this manager.
+    // only one instance of a given language engine is created by a single
+    // manager instance.
+<span class="fc" id="L95">    protected Hashtable loadedEngines = new Hashtable();</span>
+
+    // table of registered beans for use by scripting engines.
+<span class="fc" id="L98">    protected ObjectRegistry objectRegistry = new ObjectRegistry();</span>
+
+    // prop change support containing loaded engines to inform when any
+    // of my interesting properties change
+    protected PropertyChangeSupport pcs;
+
+    /*
+     * rgf (20070917): wrong assumption; context ClassLoader needs to be explicitly requested before usage as BSF could be deployed with different context
+     * ClassLoaders on different threads!
+     */
+
+    // the class loader to use if a class loader is needed. Default is
+    // he who loaded me (which may be null in which case its Class.forName).
+<span class="fc" id="L111">    protected ClassLoader classLoader = getClass().getClassLoader();</span>
+    // rgf, 20070917, reset to original// protected ClassLoader classLoader = Thread.currentThread().getContextClassLoader(); // rgf, 2006-01-05
+
+    // temporary directory to use to dump temporary files into. Note that
+    // if class files are dropped here then unless this dir is in the
+    // classpath or unless the classloader knows to look here, the classes
+    // will not be found.
+<span class="fc" id="L118">    protected String tempDir = &quot;.&quot;;</span>
+
+    // classpath used by those that need a classpath
+    protected String classPath;
+
+    // stores BSFDeclaredBeans representing objects
+    // introduced by a client of BSFManager
+<span class="fc" id="L125">    protected Vector declaredBeans = new Vector();</span>
+
+    // private Log logger = LogFactory.getLog(this.getClass().getName());
+    private BSF_Log logger;
+
+    //////////////////////////////////////////////////////////////////////
+    //
+    // pre-register engines that BSF supports off the shelf
+    //
+    //////////////////////////////////////////////////////////////////////
+
+    static {
+<span class="fc" id="L137">        final String strInfo = &quot;org.apache.bsf.BSFManager.dumpEnvironment() [from static{}]&quot;;</span>
+<span class="fc" id="L138">        final String loggerBsfStatic=&quot;[BSFManager] static {...}&quot;;</span>
+        try {
+<span class="fc" id="L140">            definedClassLoader = BSFManager.class.getClassLoader(); // get defining ClassLoader</span>
+
+<span class="fc" id="L142">            final String resourceName = &quot;org/apache/bsf/Languages.properties&quot;;</span>
+
+<span class="fc" id="L144">            Enumeration e = null;</span>
+            // use the Thread's context class loader to locate the resources
+<span class="fc" id="L146">            final ClassLoader tccl = Thread.currentThread().getContextClassLoader(); // try to get the context class loader</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">            if (tccl != null) // no context class loader available!</span>
+            {
+<span class="fc" id="L149">                e = tccl.getResources(resourceName);</span>
+            } else // fallback
+            {
+<span class="nc" id="L152">                e = definedClassLoader.getResources(resourceName);</span>
+<span class="nc" id="L153">                Thread.currentThread().setContextClassLoader(definedClassLoader); // set Thread context class loader</span>
+            }
+
+<span class="fc bfc" id="L156" title="All 2 branches covered.">            while (e.hasMoreElements()) {</span>
+<span class="fc" id="L157">                final URL url = (URL) e.nextElement();</span>
+<span class="fc" id="L158">                final InputStream is = url.openStream();</span>
+
+<span class="fc" id="L160">                final Properties p = new Properties();</span>
+<span class="fc" id="L161">                p.load(is);</span>
+
+<span class="fc bfc" id="L163" title="All 2 branches covered.">                for (final Enumeration keys = p.propertyNames(); keys.hasMoreElements();) {</span>
+
+<span class="fc" id="L165">                    final String key = (String) keys.nextElement();</span>
+<span class="fc" id="L166">                    final String value = p.getProperty(key);</span>
+<span class="fc" id="L167">                    final String className = value.substring(0, value.indexOf(&quot;,&quot;));</span>
+
+                    // get the extensions for this language
+<span class="fc" id="L170">                    final String exts = value.substring(value.indexOf(&quot;,&quot;) + 1);</span>
+<span class="fc" id="L171">                    final StringTokenizer st = new StringTokenizer(exts, &quot;|&quot;);</span>
+<span class="fc" id="L172">                    final String[] extensions = new String[st.countTokens()];</span>
+
+<span class="fc bfc" id="L174" title="All 2 branches covered.">                    for (int i = 0; st.hasMoreTokens(); i++) {</span>
+<span class="fc" id="L175">                        extensions[i] = st.nextToken().trim();</span>
+                    }
+
+<span class="fc" id="L178">                    registerScriptingEngine(key, className, extensions);</span>
+<span class="fc" id="L179">                }</span>
+<span class="fc" id="L180">            }</span>
+<span class="nc" id="L181">        } catch (final IOException ex) {</span>
+<span class="nc" id="L182">            final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());</span>
+<span class="nc" id="L183">            logger.debug(loggerBsfStatic);</span>
+<span class="nc" id="L184">            logger.error(&quot;[BSFManager] Error reading Languages file, exception :&quot;, ex);</span>
+
+            // TODO: leave in case only a no-op-logger is available or remove next two statements?
+<span class="nc" id="L187">            ex.printStackTrace();</span>
+<span class="nc" id="L188">            System.err.println(&quot;Error reading Languages file &quot; + ex);</span>
+<span class="nc" id="L189">        } catch (final NoSuchElementException nsee) {</span>
+<span class="nc" id="L190">            final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());</span>
+<span class="nc" id="L191">            logger.debug(loggerBsfStatic);</span>
+<span class="nc" id="L192">            logger.error(&quot;[BSFManager] Syntax error in Languages resource bundle, exception :&quot;, nsee);</span>
+
+            // TODO: leave in case only a no-op-logger is available or remove next two statements?
+<span class="nc" id="L195">            nsee.printStackTrace();</span>
+<span class="nc" id="L196">            System.err.println(&quot;Syntax error in Languages resource bundle&quot;);</span>
+<span class="nc" id="L197">        } catch (final MissingResourceException mre) {</span>
+<span class="nc" id="L198">            final BSF_Log logger = BSF_LogFactory.getLog(BSFManager.class.getName());</span>
+<span class="nc" id="L199">            logger.debug(loggerBsfStatic);</span>
+<span class="nc" id="L200">            logger.error(&quot;[BSFManager] Initialization error, exception :&quot;, mre);</span>
+
+            // TODO: leave in case only a no-op-logger is available or remove next two statements?
+<span class="nc" id="L203">            mre.printStackTrace();</span>
+<span class="nc" id="L204">            System.err.println(&quot;Initialization error: &quot; + mre.toString());</span>
+<span class="pc" id="L205">        }</span>
+<span class="fc" id="L206">    }</span>
+
+<span class="fc" id="L208">    public BSFManager() {</span>
+<span class="fc" id="L209">        pcs = new PropertyChangeSupport(this);</span>
+        // handle logger
+<span class="fc" id="L211">        logger = BSF_LogFactory.getLog(this.getClass().getName());</span>
+<span class="fc" id="L212">    }</span>
+
+    /**
+     * Returns the version string of BSF.
+     *
+     * @return version string in the form &amp;quot;abc.yyyymmdd&amp;quot; where &amp;quot;abc&amp;quot; represents a dewey decimal number (three levels, each between 0 and 9),
+     *         and &amp;quot;yyyy&amp;quot; a four digit year, &amp;quot;mm&amp;quot; a two digit month, &amp;quot;dd&amp;quot; a two digit day.
+     *
+     *         &lt;br&gt;
+     *         Example: &amp;quot;&lt;code&gt;250.20120129&lt;/code&gt;&amp;quot; stands for: BSF version &lt;code&gt;2.5.0&lt;/code&gt; as of &lt;code&gt;2012-01-29&lt;/code&gt;.
+     *
+     *
+     * @since 2006-01-17
+     */
+    public static String getVersion() {
+
+<span class="nc" id="L228">        return version;</span>
+    }
+
+    /**
+     * Apply the given anonymous function of the given language to the given parameters and return the resulting value.
+     *
+     * @param lang       language identifier
+     * @param source     (context info) the source of this expression (e.g., filename)
+     * @param lineNo     (context info) the line number in source for expr
+     * @param columnNo   (context info) the column number in source for expr
+     * @param funcBody   the multi-line, value returning script to evaluate
+     * @param paramNames the names of the parameters above assumes
+     * @param arguments  values of the above parameters
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public Object apply(final String lang, final String source, final int lineNo, final int columnNo, final Object funcBody, final Vector paramNames,
+            final Vector arguments) throws BSFException {
+<span class="nc" id="L246">        logger.debug(&quot;BSFManager:apply&quot;);</span>
+
+<span class="nc" id="L248">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="nc" id="L249">        final String sourcef = source;</span>
+<span class="nc" id="L250">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="nc" id="L251">        final Object funcBodyf = funcBody;</span>
+<span class="nc" id="L252">        final Vector paramNamesf = paramNames;</span>
+<span class="nc" id="L253">        final Vector argumentsf = arguments;</span>
+<span class="nc" id="L254">        Object result = null;</span>
+
+        try {
+<span class="nc" id="L257">            final Object resultf = AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="nc" id="L259">                    return e.apply(sourcef, lineNof, columnNof, funcBodyf, paramNamesf, argumentsf);</span>
+                }
+            });
+<span class="nc" id="L262">            result = resultf;</span>
+<span class="nc" id="L263">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L265">            logger.error(&quot;[BSFManager] Exception: &quot;, prive);</span>
+<span class="nc" id="L266">            throw (BSFException) prive.getException();</span>
+<span class="nc" id="L267">        }</span>
+
+<span class="nc" id="L269">        return result;</span>
+    }
+
+    /**
+     * Compile the application of the given anonymous function of the given language to the given parameters into the given {@code CodeBuffer}.
+     *
+     * @param lang       language identifier
+     * @param source     (context info) the source of this expression (e.g., filename)
+     * @param lineNo     (context info) the line number in source for expr
+     * @param columnNo   (context info) the column number in source for expr
+     * @param funcBody   the multi-line, value returning script to evaluate
+     * @param paramNames the names of the parameters above assumes
+     * @param arguments  values of the above parameters
+     * @param cb         code buffer to compile into
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    static final String BSF_EXCEPTION_MSG = &quot;[BSFManager] Exception :&quot;;
+    public void compileApply(final String lang, final String source, final int lineNo, final int columnNo, final Object funcBody, final Vector paramNames,
+            final Vector arguments, final CodeBuffer cb) throws BSFException {
+<span class="fc" id="L289">        logger.debug(&quot;BSFManager:compileApply&quot;);</span>
+
+<span class="nc" id="L291">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="nc" id="L292">        final String sourcef = source;</span>
+<span class="nc" id="L293">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="nc" id="L294">        final Object funcBodyf = funcBody;</span>
+<span class="nc" id="L295">        final Vector paramNamesf = paramNames;</span>
+<span class="nc" id="L296">        final Vector argumentsf = arguments;</span>
+<span class="nc" id="L297">        final CodeBuffer cbf = cb;</span>
+
+        try {
+<span class="nc" id="L300">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="nc" id="L302">                    e.compileApply(sourcef, lineNof, columnNof, funcBodyf, paramNamesf, argumentsf, cbf);</span>
+<span class="nc" id="L303">                    return null;</span>
+                }
+            });
+<span class="nc" id="L306">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L308">            logger.error(BSF_EXCEPTION_MSG, prive);</span>
+<span class="nc" id="L309">            throw (BSFException) prive.getException();</span>
+<span class="nc" id="L310">        }</span>
+<span class="nc" id="L311">    }</span>
+
+    /**
+     * Compile the given expression of the given language into the given {@code CodeBuffer}.
+     *
+     * @param lang     language identifier
+     * @param source   (context info) the source of this expression (e.g., filename)
+     * @param lineNo   (context info) the line number in source for expr
+     * @param columnNo (context info) the column number in source for expr
+     * @param expr     the expression to compile
+     * @param cb       code buffer to compile into
+     *
+     * @exception BSFException if any error while compiling the expression
+     */
+    public void compileExpr(final String lang, final String source, final int lineNo, final int columnNo, final Object expr, final CodeBuffer cb)
+            throws BSFException {
+<span class="nc" id="L327">        logger.debug(&quot;BSFManager:compileExpr&quot;);</span>
+
+<span class="nc" id="L329">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="nc" id="L330">        final String sourcef = source;</span>
+<span class="nc" id="L331">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="nc" id="L332">        final Object exprf = expr;</span>
+<span class="nc" id="L333">        final CodeBuffer cbf = cb;</span>
+
+        try {
+<span class="nc" id="L336">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="nc" id="L338">                    e.compileExpr(sourcef, lineNof, columnNof, exprf, cbf);</span>
+<span class="nc" id="L339">                    return null;</span>
+                }
+            });
+<span class="nc" id="L342">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L344">            logger.error(BSF_EXCEPTION_MSG, prive);</span>
+<span class="nc" id="L345">            throw (BSFException) prive.getException();</span>
+<span class="nc" id="L346">        }</span>
+<span class="nc" id="L347">    }</span>
+
+    /**
+     * Compile the given script of the given language into the given {@code CodeBuffer}.
+     *
+     * @param lang     language identifier
+     * @param source   (context info) the source of this script (e.g., filename)
+     * @param lineNo   (context info) the line number in source for script
+     * @param columnNo (context info) the column number in source for script
+     * @param script   the script to compile
+     * @param cb       code buffer to compile into
+     *
+     * @exception BSFException if any error while compiling the script
+     */
+    public void compileScript(final String lang, final String source, final int lineNo, final int columnNo, final Object script, final CodeBuffer cb)
+            throws BSFException {
+<span class="fc" id="L363">        logger.debug(&quot;BSFManager:compileScript&quot;);</span>
+
+<span class="fc" id="L365">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="fc" id="L366">        final String sourcef = source;</span>
+<span class="fc" id="L367">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="fc" id="L368">        final Object scriptf = script;</span>
+<span class="fc" id="L369">        final CodeBuffer cbf = cb;</span>
+
+        try {
+<span class="fc" id="L372">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="fc" id="L374">                    e.compileScript(sourcef, lineNof, columnNof, scriptf, cbf);</span>
+<span class="fc" id="L375">                    return null;</span>
+                }
+            });
+<span class="nc" id="L378">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L380">            logger.error(BSF_EXCEPTION_MSG, prive);</span>
+<span class="nc" id="L381">            throw (BSFException) prive.getException();</span>
+<span class="fc" id="L382">        }</span>
+<span class="fc" id="L383">    }</span>
+
+    /**
+     * Declare a bean. The difference between declaring and registering is that engines are spsed to make declared beans &quot;pre-available&quot; in the scripts as far
+     * as possible. That is, if a script author needs a registered bean, he needs to look it up in some way. However if he needs a declared bean, the language
+     * has the responsibility to make those beans avaialable &quot;automatically.&quot;
+     * &lt;p&gt;
+     * When a bean is declared it is automatically registered as well so that any declared bean can be gotton to by looking it up as well.
+     * &lt;p&gt;
+     * If any of the languages that are already running in this manager says they don't like this (by throwing an exception) then this method will simply quit
+     * with that exception. That is, any engines that come after than in the engine enumeration will not even be told about this new bean.
+     * &lt;p&gt;
+     * So, in general its best to declare beans before the manager has been asked to load any engines because then the user can be informed when an engine
+     * rejects it. Also, its much more likely that an engine can declare a bean at start time than it can at any time.
+     *
+     * @param beanName name to declare bean as
+     * @param bean     the bean that's being declared
+     * @param type     the type to represent the bean as
+     *
+     * @exception BSFException if any of the languages that are already running decides to throw an exception when asked to declare this bean.
+     */
+    public void declareBean(final String beanName, final Object bean, final Class type) throws BSFException {
+<span class="fc" id="L405">        logger.debug(&quot;BSFManager:declareBean&quot;);</span>
+
+<span class="fc" id="L407">        registerBean(beanName, bean);</span>
+
+<span class="fc" id="L409">        final BSFDeclaredBean tempBean = new BSFDeclaredBean(beanName, bean, type);</span>
+<span class="fc" id="L410">        declaredBeans.addElement(tempBean);</span>
+
+<span class="fc" id="L412">        final Enumeration enginesEnum = loadedEngines.elements();</span>
+        BSFEngine engine;
+<span class="fc bfc" id="L414" title="All 2 branches covered.">        while (enginesEnum.hasMoreElements()) {</span>
+<span class="fc" id="L415">            engine = (BSFEngine) enginesEnum.nextElement();</span>
+<span class="fc" id="L416">            engine.declareBean(tempBean);</span>
+        }
+<span class="fc" id="L418">    }</span>
+
+    /**
+     * Evaluate the given expression of the given language and return the resulting value.
+     *
+     * @param lang     language identifier
+     * @param source   (context info) the source of this expression (e.g., filename)
+     * @param lineNo   (context info) the line number in source for expr
+     * @param columnNo (context info) the column number in source for expr
+     * @param expr     the expression to evaluate
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public Object eval(final String lang, final String source, final int lineNo, final int columnNo, final Object expr) throws BSFException {
+<span class="fc" id="L432">        logger.debug(&quot;BSFManager:eval&quot;);</span>
+
+<span class="fc" id="L434">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="fc" id="L435">        final String sourcef = source;</span>
+<span class="fc" id="L436">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="fc" id="L437">        final Object exprf = expr;</span>
+<span class="fc" id="L438">        Object result = null;</span>
+
+        try {
+<span class="fc" id="L441">            final Object resultf = AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="fc" id="L443">                    return e.eval(sourcef, lineNof, columnNof, exprf);</span>
+                }
+            });
+<span class="fc" id="L446">            result = resultf;</span>
+<span class="fc" id="L447">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="fc" id="L449">            logger.error(&quot;[BSFManager] Exception: &quot;, prive);</span>
+<span class="fc" id="L450">            throw (BSFException) prive.getException();</span>
+<span class="fc" id="L451">        }</span>
+
+<span class="fc" id="L453">        return result;</span>
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    //
+    // Convenience functions for exec'ing and eval'ing scripts directly
+    // without loading and dealing with engines etc..
+    //
+    //////////////////////////////////////////////////////////////////////
+
+    /**
+     * Execute the given script of the given language.
+     *
+     * @param lang     language identifier
+     * @param source   (context info) the source of this expression (e.g., filename)
+     * @param lineNo   (context info) the line number in source for expr
+     * @param columnNo (context info) the column number in source for expr
+     * @param script   the script to execute
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public void exec(final String lang, final String source, final int lineNo, final int columnNo, final Object script) throws BSFException {
+<span class="fc" id="L475">        logger.debug(&quot;BSFManager:exec&quot;);</span>
+
+<span class="fc" id="L477">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="fc" id="L478">        final String sourcef = source;</span>
+<span class="fc" id="L479">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="fc" id="L480">        final Object scriptf = script;</span>
+
+        try {
+<span class="fc" id="L483">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="fc" id="L485">                    e.exec(sourcef, lineNof, columnNof, scriptf);</span>
+<span class="fc" id="L486">                    return null;</span>
+                }
+            });
+<span class="fc" id="L489">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="fc" id="L491">            logger.error(BSF_EXCEPTION_MSG, prive);</span>
+<span class="fc" id="L492">            throw (BSFException) prive.getException();</span>
+<span class="fc" id="L493">        }</span>
+<span class="fc" id="L494">    }</span>
+
+    /**
+     * Execute the given script of the given language, attempting to emulate an interactive session w/ the language.
+     *
+     * @param lang     language identifier
+     * @param source   (context info) the source of this expression (e.g., filename)
+     * @param lineNo   (context info) the line number in source for expr
+     * @param columnNo (context info) the column number in source for expr
+     * @param script   the script to execute
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public void iexec(final String lang, final String source, final int lineNo, final int columnNo, final Object script) throws BSFException {
+<span class="fc" id="L508">        logger.debug(&quot;BSFManager:iexec&quot;);</span>
+
+<span class="fc" id="L510">        final BSFEngine e = loadScriptingEngine(lang);</span>
+<span class="fc" id="L511">        final String sourcef = source;</span>
+<span class="fc" id="L512">        final int lineNof = lineNo, columnNof = columnNo;</span>
+<span class="fc" id="L513">        final Object scriptf = script;</span>
+
+        try {
+<span class="fc" id="L516">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="fc" id="L518">                    e.iexec(sourcef, lineNof, columnNof, scriptf);</span>
+<span class="fc" id="L519">                    return null;</span>
+                }
+            });
+<span class="nc" id="L522">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L524">            logger.error(BSF_EXCEPTION_MSG , prive);</span>
+<span class="nc" id="L525">            throw (BSFException) prive.getException();</span>
+<span class="fc" id="L526">        }</span>
+<span class="fc" id="L527">    }</span>
+
+    /**
+     * Get classLoader
+     */
+    public ClassLoader getClassLoader() {
+<span class="fc" id="L533">        logger.debug(&quot;BSFManager:getClassLoader&quot;);</span>
+<span class="fc" id="L534">        return classLoader;</span>
+    }
+
+    /**
+     * Get classPath
+     */
+    public String getClassPath() {
+<span class="fc" id="L541">        logger.debug(&quot;BSFManager:getClassPath&quot;);</span>
+<span class="fc bfc" id="L542" title="All 2 branches covered.">        if (classPath == null) {</span>
+            try {
+<span class="fc" id="L544">                classPath = System.getProperty(&quot;java.class.path&quot;);</span>
+<span class="nc" id="L545">            } catch (final Throwable t) {</span>
+
+<span class="nc" id="L547">                logger.debug(BSF_EXCEPTION_MSG, t);</span>
+                // prolly a security exception .. so no can do
+<span class="fc" id="L549">            }</span>
+        }
+<span class="fc" id="L551">        return classPath;</span>
+    }
+
+    /**
+     * Determine the language of a script file by looking at the file extension.
+     *
+     * @param fileName the name of the file
+     *
+     * @return the scripting language the file is in if the file extension is known to me (must have been registered via registerScriptingEngine).
+     *
+     * @exception BSFException if file's extension is unknown.
+     */
+
+    public static String getLangFromFilename(final String fileName) throws BSFException {
+<span class="fc" id="L565">        final int dotIndex = fileName.lastIndexOf(&quot;.&quot;);</span>
+
+<span class="fc bfc" id="L567" title="All 2 branches covered.">        if (dotIndex != -1) {</span>
+<span class="fc" id="L568">            final String extn = fileName.substring(dotIndex + 1);</span>
+<span class="fc" id="L569">            String langval = (String) extn2Lang.get(extn);</span>
+<span class="fc" id="L570">            String lang = null;</span>
+<span class="fc" id="L571">            int index, loops = 0;</span>
+
+<span class="pc bpc" id="L573" title="1 of 2 branches missed.">            if (langval != null) {</span>
+<span class="fc" id="L574">                lang = findLang(langval);</span>
+
+<span class="pc bpc" id="L576" title="1 of 2 branches missed.">                if (langFound(lang)) {</span>
+<span class="fc" id="L577">                    return lang;</span>
+                }
+            }
+<span class="nc" id="L580">            throw new BSFException(BSFException.REASON_OTHER_ERROR,</span>
+                    &quot;[BSFManager.getLangFromFilename] file extension missing or unknown: &quot; + &quot;unable to determine language for '&quot; + fileName + &quot;'&quot;);
+        }
+<span class="fc" id="L583">        return null;</span>
+    }
+    public static String findLang(String langval){
+<span class="fc" id="L586">        final ClassLoader tccl = Thread.currentThread().getContextClassLoader(); // rgf, 2009-09-10</span>
+<span class="fc" id="L587">        String lang=null;</span>
+<span class="fc" id="L588">        int index, loops = 0;</span>
+<span class="fc bfc" id="L589" title="All 2 branches covered.">        while ((index = langval.indexOf(&quot;:&quot;, 0)) != -1) {</span>
+            // Great. Multiple language engines registered
+            // for this extension.
+            // Try to find first one that is in our classpath.
+<span class="fc" id="L593">            lang = langval.substring(0, index);</span>
+<span class="fc" id="L594">            langval = langval.substring(index + 1);</span>
+<span class="fc" id="L595">            loops++;</span>
+
+            // Test to see if in classpath
+<span class="fc" id="L598">            String engineName = null;</span>
+            try {
+
+<span class="fc" id="L601">                engineName = (String) registeredEngines.get(lang);</span>
+<span class="fc" id="L602">                boolean bTryDefinedClassLoader = isClAvailable(tccl,engineName);</span>
+
+<span class="pc bpc" id="L604" title="1 of 2 branches missed.">                if (classLoaderFound(bTryDefinedClassLoader,tccl)) // not found, try defined CL next</span>
+                {
+<span class="nc" id="L606">                    definedClassLoader.loadClass(engineName);</span>
+                }
+<span class="nc" id="L608">            } catch (final ClassNotFoundException cnfe2) {</span>
+                // Bummer.
+<span class="nc" id="L610">                lang = langval;</span>
+<span class="nc" id="L611">                continue;</span>
+<span class="fc" id="L612">            }</span>
+
+            // Got past that? Good.
+            break;
+        }
+<span class="fc bfc" id="L617" title="All 2 branches covered.">        if (loops == 0) {</span>
+<span class="fc" id="L618">            lang = langval;</span>
+        }
+<span class="fc" id="L620">        return lang;</span>
+    }
+
+    public static boolean isClAvailable(ClassLoader tccl, String engineName){
+<span class="pc bpc" id="L624" title="1 of 2 branches missed.">        if (tccl != null) // context CL available, try it first</span>
+        {
+            try {
+<span class="fc" id="L627">                tccl.loadClass(engineName);</span>
+<span class="nc" id="L628">            } catch (final ClassNotFoundException cnfe) {</span>
+<span class="nc" id="L629">                return true;</span>
+<span class="fc" id="L630">            }</span>
+        }
+<span class="fc" id="L632">        return false;</span>
+    }
+    public static boolean classLoaderFound (boolean bTryDefinedClassLoader,ClassLoader tccl){
+<span class="pc bpc" id="L635" title="2 of 4 branches missed.">        return bTryDefinedClassLoader || tccl == null;</span>
+    }
+    public static boolean langFound (String lang){
+<span class="pc bpc" id="L638" title="1 of 4 branches missed.">        return (lang != null &amp;&amp; !lang.isEmpty());</span>
+    }
+    /**
+     * Return the current object registry of the manager.
+     *
+     * @return the current registry.
+     */
+    public ObjectRegistry getObjectRegistry() {
+<span class="nc" id="L646">        return objectRegistry;</span>
+    }
+
+    /**
+     * Get tempDir
+     */
+    public String getTempDir() {
+<span class="fc" id="L653">        return tempDir;</span>
+    }
+
+    /**
+     * Determine whether a language is registered.
+     *
+     * @param lang string identifying a language
+     *
+     * @return true iff it is
+     */
+    public static boolean isLanguageRegistered(final String lang) {
+<span class="fc bfc" id="L664" title="All 2 branches covered.">        return (registeredEngines.get(lang) != null);</span>
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    //
+    // Bean scripting framework services
+    //
+    //////////////////////////////////////////////////////////////////////
+
+    /**
+     * Load a scripting engine based on the lang string identifying it.
+     *
+     * @param lang string identifying language
+     * @exception BSFException if the language is unknown (i.e., if it has not been registered) with a reason of REASON_UNKNOWN_LANGUAGE. If the language is
+     *                         known but if the interface can't be created for some reason, then the reason is set to REASON_OTHER_ERROR and the actual
+     *                         exception is passed on as well.
+     */
+    public BSFEngine loadScriptingEngine(final String lang) throws BSFException {
+<span class="fc" id="L682">        logger.debug(&quot;BSFManager:loadScriptingEngine&quot;);</span>
+
+        // if its already loaded return that
+<span class="fc" id="L685">        BSFEngine eng = (BSFEngine) loadedEngines.get(lang);</span>
+<span class="fc bfc" id="L686" title="All 2 branches covered.">        if (eng != null) {</span>
+<span class="fc" id="L687">            return eng;</span>
+        }
+
+        // is it a registered language?
+<span class="fc" id="L691">        final String engineClassName = (String) registeredEngines.get(lang);</span>
+<span class="fc bfc" id="L692" title="All 2 branches covered.">        if (engineClassName == null) {</span>
+<span class="fc" id="L693">            logger.error(&quot;[BSFManager] unsupported language: &quot; + lang);</span>
+<span class="fc" id="L694">            throw new BSFException(BSFException.REASON_UNKNOWN_LANGUAGE, &quot;[BSFManager.loadScriptingEngine()] unsupported language: &quot; + lang);</span>
+        }
+
+        // create the engine and initialize it. if anything goes wrong
+        // except.
+        try {
+
+<span class="fc" id="L701">            Class engineClass = null;</span>
+
+<span class="fc" id="L703">            final ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+<span class="pc bpc" id="L704" title="1 of 2 branches missed.">            if (tccl != null) {</span>
+                try {
+<span class="fc" id="L706">                    engineClass = tccl.loadClass(engineClassName);</span>
+<span class="nc" id="L707">                } catch (final ClassNotFoundException cnfe) {</span>
+<span class="fc" id="L708">                }</span>
+            }
+
+<span class="pc bpc" id="L711" title="1 of 2 branches missed.">            if (engineClass == null) // not found, try the defined classLoader</span>
+            {
+<span class="nc" id="L713">                engineClass = definedClassLoader.loadClass(engineClassName);</span>
+            }
+
+<span class="fc" id="L716">            final BSFEngine engf = (BSFEngine) engineClass.newInstance();</span>
+<span class="fc" id="L717">            final BSFManager thisf = this;</span>
+<span class="fc" id="L718">            final String langf = lang;</span>
+<span class="fc" id="L719">            final Vector dbf = declaredBeans;</span>
+<span class="fc" id="L720">            AccessController.doPrivileged(new PrivilegedExceptionAction() {</span>
+                public Object run() throws Exception {
+<span class="fc" id="L722">                    engf.initialize(thisf, langf, dbf);</span>
+<span class="fc" id="L723">                    return null;</span>
+                }
+            });
+<span class="fc" id="L726">            eng = engf;</span>
+<span class="fc" id="L727">            loadedEngines.put(lang, eng);</span>
+<span class="fc" id="L728">            pcs.addPropertyChangeListener(eng);</span>
+<span class="fc" id="L729">            return eng;</span>
+<span class="nc" id="L730">        } catch (final PrivilegedActionException prive) {</span>
+
+<span class="nc" id="L732">            logger.error(BSF_EXCEPTION_MSG, prive);</span>
+<span class="nc" id="L733">            throw (BSFException) prive.getException();</span>
+<span class="nc" id="L734">        } catch (final Throwable t) {</span>
+
+<span class="nc" id="L736">            logger.error(BSF_EXCEPTION_MSG, t);</span>
+<span class="nc" id="L737">            throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;[BSFManager.loadScriptingEngine()] unable to load language: &quot; + lang, t);</span>
+        }
+    }
+
+    /**
+     * return a handle to a bean registered in the bean registry by the application or a scripting engine. Returns null if bean is not found.
+     *
+     * @param beanName name of bean to look up
+     *
+     * @return the bean if its found or null
+     */
+    public Object lookupBean(final String beanName) {
+<span class="fc" id="L749">        logger.debug(&quot;BSFManager:lookupBean&quot;);</span>
+
+        try {
+<span class="fc" id="L752">            return ((BSFDeclaredBean) objectRegistry.lookup(beanName)).bean;</span>
+<span class="fc" id="L753">        } catch (final IllegalArgumentException e) {</span>
+
+<span class="fc" id="L755">            logger.debug(BSF_EXCEPTION_MSG, e);</span>
+<span class="fc" id="L756">            return null;</span>
+        }
+    }
+
+    /**
+     * Registering a bean allows a scripting engine or the application to access that bean by name and to manipulate it.
+     *
+     * @param beanName name to register under
+     * @param bean     the bean to register
+     */
+    public void registerBean(final String beanName, final Object bean) {
+<span class="fc" id="L767">        logger.debug(&quot;BSFManager:registerBean&quot;);</span>
+
+        BSFDeclaredBean tempBean;
+
+<span class="pc bpc" id="L771" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L772">            tempBean = new BSFDeclaredBean(beanName, null, null);</span>
+        } else {
+
+<span class="fc" id="L775">            tempBean = new BSFDeclaredBean(beanName, bean, bean.getClass());</span>
+        }
+<span class="fc" id="L777">        objectRegistry.register(beanName, tempBean);</span>
+<span class="fc" id="L778">    }</span>
+
+    /**
+     * Register a scripting engine in the static registry of the BSFManager.
+     *
+     * @param lang            string identifying language
+     * @param engineClassName fully qualified name of the class interfacing the language to BSF.
+     * @param extensions      array of file extensions that should be mapped to this language type. may be null.
+     */
+    public static void registerScriptingEngine(final String lang, final String engineClassName, final String[] extensions) {
+<span class="fc" id="L788">        registeredEngines.put(lang, engineClassName);</span>
+<span class="pc bpc" id="L789" title="1 of 2 branches missed.">        if (extensions != null) {</span>
+<span class="fc bfc" id="L790" title="All 2 branches covered.">            for (int i = 0; i &lt; extensions.length; i++) {</span>
+<span class="fc" id="L791">                String langstr = (String) extn2Lang.get(extensions[i]);</span>
+<span class="fc bfc" id="L792" title="All 2 branches covered.">                langstr = (langstr == null) ? lang : lang + &quot;:&quot; + langstr;</span>
+<span class="fc" id="L793">                extn2Lang.put(extensions[i], langstr);</span>
+            }
+        }
+<span class="fc" id="L796">    }</span>
+
+    /**
+     * Set the class loader for those that need to use it. Default is he who loaded me or null (i.e., its Class.forName).
+     *
+     * @param classLoader the class loader to use.
+     */
+    public void setClassLoader(final ClassLoader classLoader) {
+<span class="nc" id="L804">        logger.debug(&quot;BSFManager:setClassLoader&quot;);</span>
+
+<span class="nc" id="L806">        pcs.firePropertyChange(&quot;classLoader&quot;, this.classLoader, classLoader);</span>
+<span class="nc" id="L807">        this.classLoader = classLoader;</span>
+<span class="nc" id="L808">    }</span>
+
+    /**
+     * Set the classpath for those that need to use it. Default is the value of the java.class.path property.
+     *
+     * @param classPath the classpath to use
+     */
+    public void setClassPath(final String classPath) {
+<span class="nc" id="L816">        logger.debug(&quot;BSFManager:setClassPath&quot;);</span>
+
+<span class="nc" id="L818">        pcs.firePropertyChange(&quot;classPath&quot;, this.classPath, classPath);</span>
+<span class="nc" id="L819">        this.classPath = classPath;</span>
+<span class="nc" id="L820">    }</span>
+
+    /**
+     * Set the object registry used by this manager. By default a new one is created when the manager is new'ed and this overwrites that one.
+     *
+     * @param objectRegistry the registry to use
+     */
+    public void setObjectRegistry(final ObjectRegistry objectRegistry) {
+<span class="nc" id="L828">        logger.debug(&quot;BSFManager:setObjectRegistry&quot;);</span>
+
+<span class="nc" id="L830">        this.objectRegistry = objectRegistry;</span>
+<span class="nc" id="L831">    }</span>
+
+    /**
+     * Temporary directory to put stuff into (for those who need to). Note that unless this directory is in the classpath or unless the classloader knows to
+     * look in here, any classes here will not be found! BSFManager provides a service method to load a class which uses either the classLoader provided by the
+     * class loader property or, if that fails, a class loader which knows to load from the tempdir to try to load the class. Default value of tempDir is &quot;.&quot;
+     * (current working dir).
+     *
+     * @param tempDir the temporary directory
+     */
+    public void setTempDir(final String tempDir) {
+<span class="nc" id="L842">        logger.debug(&quot;BSFManager:setTempDir&quot;);</span>
+
+<span class="nc" id="L844">        pcs.firePropertyChange(&quot;tempDir&quot;, this.tempDir, tempDir);</span>
+<span class="nc" id="L845">        this.tempDir = tempDir;</span>
+<span class="nc" id="L846">    }</span>
+
+    /**
+     * Gracefully terminate all engines
+     */
+    public void terminate() {
+<span class="fc" id="L852">        logger.debug(&quot;BSFManager:terminate&quot;);</span>
+
+<span class="fc" id="L854">        final Enumeration enginesEnum = loadedEngines.elements();</span>
+        BSFEngine engine;
+<span class="fc bfc" id="L856" title="All 2 branches covered.">        while (enginesEnum.hasMoreElements()) {</span>
+<span class="fc" id="L857">            engine = (BSFEngine) enginesEnum.nextElement();</span>
+<span class="fc" id="L858">            pcs.removePropertyChangeListener(engine); // rgf, 2014-12-30: removing memory leak</span>
+<span class="fc" id="L859">            engine.terminate();</span>
+        }
+
+<span class="fc" id="L862">        loadedEngines = new Hashtable();</span>
+<span class="fc" id="L863">    }</span>
+
+    /**
+     * Undeclare a previously declared bean. This removes the bean from the list of declared beans in the manager as well as asks every running engine to
+     * undeclared the bean. As with above, if any of the engines except when asked to undeclare, this method does not catch that exception. Quietly returns if
+     * the bean is unknown.
+     *
+     * @param beanName name of bean to undeclare
+     *
+     * @exception BSFException if any of the languages that are already running decides to throw an exception when asked to undeclare this bean.
+     */
+    public void undeclareBean(final String beanName) throws BSFException {
+<span class="fc" id="L875">        logger.debug(&quot;BSFManager:undeclareBean&quot;);</span>
+
+<span class="fc" id="L877">        unregisterBean(beanName);</span>
+
+<span class="fc" id="L879">        BSFDeclaredBean tempBean = null;</span>
+<span class="fc" id="L880">        boolean found = false;</span>
+<span class="pc bpc" id="L881" title="1 of 2 branches missed.">        for (final Iterator i = declaredBeans.iterator(); i.hasNext();) {</span>
+<span class="fc" id="L882">            tempBean = (BSFDeclaredBean) i.next();</span>
+<span class="pc bpc" id="L883" title="1 of 2 branches missed.">            if (tempBean.name.equals(beanName)) {</span>
+<span class="fc" id="L884">                found = true;</span>
+<span class="fc" id="L885">                break;</span>
+            }
+        }
+
+<span class="pc bpc" id="L889" title="1 of 2 branches missed.">        if (found) {</span>
+<span class="fc" id="L890">            declaredBeans.removeElement(tempBean);</span>
+
+<span class="fc" id="L892">            final Enumeration enginesEnum = loadedEngines.elements();</span>
+<span class="fc bfc" id="L893" title="All 2 branches covered.">            while (enginesEnum.hasMoreElements()) {</span>
+<span class="fc" id="L894">                final BSFEngine engine = (BSFEngine) enginesEnum.nextElement();</span>
+<span class="fc" id="L895">                engine.undeclareBean(tempBean);</span>
+<span class="fc" id="L896">            }</span>
+        }
+<span class="fc" id="L898">    }</span>
+
+    /**
+     * Unregister a previously registered bean. Silent if name is not found.
+     *
+     * @param beanName name of bean to unregister
+     */
+    public void unregisterBean(final String beanName) {
+<span class="fc" id="L906">        logger.debug(&quot;BSFManager:unregisterBean&quot;);</span>
+
+<span class="fc" id="L908">        objectRegistry.unregister(beanName);</span>
+<span class="fc" id="L909">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

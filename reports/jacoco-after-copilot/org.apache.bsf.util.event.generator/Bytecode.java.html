@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Bytecode.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util.event.generator</a> &gt; <span class="el_source">Bytecode.java</span></div><h1>Bytecode.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util.event.generator;
+
+/**
+ * Bytecode handling utilities
+ *
+ * Handle standard byte arrays as defined in Java VM and Class File
+ *
+ * 5 April 1999 - functions to append Class File byte subarrays into a Class File byte array
+ */
+<span class="fc" id="L27">public class Bytecode {</span>
+    // Constant Pool Item Codes
+    public static final byte C_UTF8 = 0x01; // 1
+    public static final byte C_INTEGER = 0x03; // 3
+    public static final byte C_FLOAT = 0x04; // 4
+    public static final byte C_LONG = 0x05; // 5
+    public static final byte C_DOUBLE = 0x06; // 6
+    public static final byte C_CLASS = 0x07; // 7
+    public static final byte C_STRING = 0x08; // 8
+    public static final byte C_FIELD_REF = 0x09; // 9
+    public static final byte C_METHOD_REF = 0x0A; // 10
+    public static final byte C_INTERFACE_METHOD_REF = 0x0B; // 11
+    public static final byte C_NAME_AND_TYPE = 0x0C; // 12
+
+//public static byte[] addDouble(byte[] array,double value)
+//{
+//  array = ByteUtility.addBytes(array,C_Double);
+//  array = ByteUtility.addBytes(array,value);
+//  return array;
+//}
+
+    public static byte[] addClass(final byte[] array, final short value) {
+<span class="fc" id="L49">        return addRef(C_CLASS, array, value);</span>
+    }
+
+    public static byte[] addFieldRef(final byte[] array, final short value1, final short value2) {
+<span class="fc" id="L53">        return addRef(C_FIELD_REF, array, value1, value2);</span>
+    }
+
+    public static byte[] addInteger(byte[] array, final int value) {
+<span class="fc" id="L57">        array = ByteUtility.addBytes(array, C_INTEGER);</span>
+<span class="fc" id="L58">        array = ByteUtility.addBytes(array, value);</span>
+<span class="fc" id="L59">        return array;</span>
+    }
+
+    public static byte[] addInterfaceMethodRef(final byte[] array, final short value1, final short value2) {
+<span class="nc" id="L63">        return addRef(C_INTERFACE_METHOD_REF, array, value1, value2);</span>
+    }
+//public static byte[] addFloat(byte[] array,float value)
+//{
+//  array = ByteUtility.addBytes(array,C_Float);
+//  array = ByteUtility.addBytes(array,value);
+//  return array;
+//}
+
+    public static byte[] addLong(byte[] array, final long value) {
+<span class="fc" id="L73">        array = ByteUtility.addBytes(array, C_LONG);</span>
+<span class="fc" id="L74">        array = ByteUtility.addBytes(array, value);</span>
+<span class="fc" id="L75">        return array;</span>
+    }
+
+    public static byte[] addMethodRef(final byte[] array, final short value1, final short value2) {
+<span class="fc" id="L79">        return addRef(C_METHOD_REF, array, value1, value2);</span>
+    }
+
+    public static byte[] addNameAndType(final byte[] array, final short value1, final short value2) {
+<span class="fc" id="L83">        return addRef(C_NAME_AND_TYPE, array, value1, value2);</span>
+    }
+
+    public static byte[] addRef(final byte refType, byte[] array, final short value) {
+<span class="fc" id="L87">        array = ByteUtility.addBytes(array, refType);</span>
+<span class="fc" id="L88">        array = ByteUtility.addBytes(array, value);</span>
+<span class="fc" id="L89">        return array;</span>
+    }
+
+    // Generic Bytecode Methods
+    public static byte[] addRef(final byte refType, byte[] array, final short value1, final short value2) {
+<span class="fc" id="L94">        array = ByteUtility.addBytes(array, refType);</span>
+<span class="fc" id="L95">        array = ByteUtility.addBytes(array, value1);</span>
+<span class="fc" id="L96">        array = ByteUtility.addBytes(array, value2);</span>
+<span class="fc" id="L97">        return array;</span>
+    }
+
+    public static byte[] addString(final byte[] array, final short value) {
+<span class="nc" id="L101">        return addRef(C_STRING, array, value);</span>
+    }
+
+    // Constant Pool Item Methods
+    public static byte[] addUtf8(byte[] array, final String value) {
+<span class="fc" id="L106">        array = ByteUtility.addBytes(array, C_UTF8);</span>
+<span class="fc" id="L107">        array = ByteUtility.addBytes(array, (short) value.length());</span>
+<span class="fc" id="L108">        array = ByteUtility.addBytes(array, value);</span>
+<span class="fc" id="L109">        return array;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

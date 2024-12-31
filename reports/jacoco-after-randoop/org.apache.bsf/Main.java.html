@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Main.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf</a> &gt; <span class="el_source">Main.java</span></div><h1>Main.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf;
+
+import java.awt.Frame;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.util.Hashtable;
+
+import org.apache.bsf.util.CodeBuffer;
+import org.apache.bsf.util.IOUtils;
+
+/**
+ * This is the main driver for BSF to be run on the command line to eval/exec/compile scripts directly.
+ */
+<span class="nc" id="L37">public class Main {</span>
+    private static final String ARG_IN = &quot;-in&quot;;
+    private static final String ARG_LANG = &quot;-lang&quot;;
+    private static final String ARG_MODE = &quot;-mode&quot;;
+    private static final String ARG_OUT = &quot;-out&quot;;
+    private static final String ARG_VAL_EVAL = &quot;eval&quot;;
+    private static final String ARG_VAL_EXEC = &quot;exec&quot;;
+    private static final String ARG_VAL_COMPILE = &quot;compile&quot;;
+    private static final String DEFAULT_IN_FILE_NAME = &quot;&lt;STDIN&gt;&quot;;
+    private static final String DEFAULT_MODE = ARG_VAL_EVAL;
+    private static final String DEFAULT_CLASS_NAME = &quot;Test&quot;;
+
+    /**
+     * Static driver to be able to run BSF scripts from the command line.
+     *
+     * @param args command line arguments
+     *
+     * @exception IOException if any I/O error while loading script
+     */
+    public static void main(final String[] args) throws IOException {
+        try {
+<span class="nc bnc" id="L58" title="All 4 branches missed.">            if ((args.length == 0) || (args.length % 2 != 0)) {</span>
+<span class="nc" id="L59">                printHelp();</span>
+<span class="nc" id="L60">                System.exit(1);</span>
+            }
+
+<span class="nc" id="L63">            final Hashtable argsTable = new Hashtable();</span>
+
+<span class="nc" id="L65">            argsTable.put(ARG_OUT, DEFAULT_CLASS_NAME);</span>
+<span class="nc" id="L66">            argsTable.put(ARG_MODE, DEFAULT_MODE);</span>
+
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            for (int i = 0; i &lt; args.length; i += 2) {</span>
+<span class="nc" id="L69">                argsTable.put(args[i], args[i + 1]);</span>
+            }
+
+<span class="nc" id="L72">            String inFileName = (String) argsTable.get(ARG_IN);</span>
+<span class="nc" id="L73">            String language = (String) argsTable.get(ARG_LANG);</span>
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">            if (language == null) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                if (inFileName != null) {</span>
+<span class="nc" id="L77">                    language = BSFManager.getLangFromFilename(inFileName);</span>
+                } else {
+<span class="nc" id="L79">                    throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;unable to determine language&quot;);</span>
+                }
+            }
+
+            Reader in;
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (inFileName != null) {</span>
+<span class="nc" id="L86">                in = new FileReader(inFileName);</span>
+            } else {
+<span class="nc" id="L88">                in = new InputStreamReader(System.in);</span>
+<span class="nc" id="L89">                inFileName = DEFAULT_IN_FILE_NAME;</span>
+            }
+
+<span class="nc" id="L92">            final BSFManager mgr = new BSFManager();</span>
+<span class="nc" id="L93">            final String mode = (String) argsTable.get(ARG_MODE);</span>
+<span class="nc bnc" id="L94" title="All 3 branches missed.">            switch(mode){</span>
+                case ARG_VAL_COMPILE:
+<span class="nc" id="L96">                    final String outClassName = (String) argsTable.get(ARG_OUT);</span>
+<span class="nc" id="L97">                    final FileWriter out = new FileWriter(outClassName + &quot;.java&quot;);</span>
+<span class="nc" id="L98">                    final PrintWriter pw = new PrintWriter(out);</span>
+
+<span class="nc" id="L100">                    final CodeBuffer cb = new CodeBuffer();</span>
+<span class="nc" id="L101">                    cb.setClassName(outClassName);</span>
+<span class="nc" id="L102">                    mgr.compileScript(language, inFileName, 0, 0, IOUtils.getStringFromReader(in), cb);</span>
+<span class="nc" id="L103">                    cb.print(pw, true);</span>
+<span class="nc" id="L104">                    out.close();</span>
+<span class="nc" id="L105">                    break;</span>
+                case ARG_VAL_EXEC:
+<span class="nc" id="L107">                    mgr.exec(language, inFileName, 0, 0, IOUtils.getStringFromReader(in));</span>
+<span class="nc" id="L108">                    break;</span>
+                default:
+                /* eval */
+<span class="nc" id="L111">                    final Object obj = mgr.eval(language, inFileName, 0, 0, IOUtils.getStringFromReader(in));</span>
+<span class="nc" id="L112">                    checkJavaAwtComponent(obj,inFileName);</span>
+                    // Try to display the result.
+<span class="nc" id="L114">                    System.err.println(&quot;Result: &quot; + obj);</span>
+                    }
+<span class="nc" id="L116">        } catch (final BSFException e) {</span>
+<span class="nc" id="L117">            e.printStackTrace();</span>
+<span class="nc" id="L118">        }</span>
+<span class="nc" id="L119">    }</span>
+    public static void checkJavaAwtComponent(Object obj,String inFileName){
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (obj instanceof java.awt.Component) {</span>
+            Frame f;
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (obj instanceof Frame) {</span>
+<span class="nc" id="L124">                f = (Frame) obj;</span>
+            } else {
+<span class="nc" id="L126">                f = new Frame(&quot;BSF Result: &quot; + inFileName);</span>
+<span class="nc" id="L127">                f.add((java.awt.Component) obj);</span>
+            }
+            // Add a window listener to quit on closing.
+<span class="nc" id="L130">            f.addWindowListener(new WindowAdapter() {</span>
+                public void windowClosing(final WindowEvent e) {
+<span class="nc" id="L132">                    System.exit(0);</span>
+<span class="nc" id="L133">                }</span>
+            });
+<span class="nc" id="L135">            f.pack();</span>
+            // f.show(); // javac 1.5 warns to use f.show(), Apache build scripts abort as a result :(
+<span class="nc" id="L137">            f.setVisible(true); // available since Java 1.1</span>
+<span class="nc" id="L138">        } else {</span>
+<span class="fc" id="L139">            System.err.println(&quot;Result: &quot; + obj);</span>
+
+        }
+<span class="fc" id="L142">    }</span>
+    private static void printHelp() {
+<span class="nc" id="L144">        System.err.println(&quot;Usage:&quot;);</span>
+<span class="nc" id="L145">        System.err.println();</span>
+<span class="nc" id="L146">        System.err.println(&quot;  java &quot; + Main.class.getName() + &quot; [args]&quot;);</span>
+<span class="nc" id="L147">        System.err.println();</span>
+<span class="nc" id="L148">        System.err.println(&quot;    args:&quot;);</span>
+<span class="nc" id="L149">        System.err.println();</span>
+<span class="nc" id="L150">        System.err.println(&quot;      [-in                fileName]   default: &quot; + DEFAULT_IN_FILE_NAME);</span>
+<span class="nc" id="L151">        System.err.println(&quot;      [-lang          languageName]   default: &quot; + &quot;&lt;If -in is specified and -lang&quot;);</span>
+<span class="nc" id="L152">        System.err.println(&quot;                                               &quot; + &quot; is not, attempt to determine&quot;);</span>
+<span class="nc" id="L153">        System.err.println(&quot;                                               &quot; + &quot; language from file extension;&quot;);</span>
+<span class="nc" id="L154">        System.err.println(&quot;                                               &quot; + &quot; otherwise, -lang is required.&gt;&quot;);</span>
+<span class="nc" id="L155">        System.err.println(&quot;      [-mode   (eval|exec|compile)]   default: &quot; + DEFAULT_MODE);</span>
+<span class="nc" id="L156">        System.err.println();</span>
+<span class="nc" id="L157">        System.err.println(&quot;    Additional args used only if -mode is &quot; + &quot;set to \&quot;compile\&quot;:&quot;);</span>
+<span class="nc" id="L158">        System.err.println();</span>
+<span class="nc" id="L159">        System.err.println(&quot;      [-out              className]   default: &quot; + DEFAULT_CLASS_NAME);</span>
+<span class="nc" id="L160">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

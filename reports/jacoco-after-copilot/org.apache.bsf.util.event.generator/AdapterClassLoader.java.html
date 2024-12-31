@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdapterClassLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util.event.generator</a> &gt; <span class="el_source">AdapterClassLoader.java</span></div><h1>AdapterClassLoader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* changes:
+
+   2012-01-15, Rony G. Flatscher: take into account that the current context class loader may be null, JIRA [BSF-21]
+
+   2008-07-04, rgf: if classes cannot be defined or found, try to use the current Thread's
+                    content class loader using a new inner class &quot;LocalThreadClassLoader&quot;
+*/
+
+package org.apache.bsf.util.event.generator;
+
+import org.apache.bsf.BSF_Log;
+import org.apache.bsf.BSF_LogFactory;
+
+import java.util.Hashtable;
+
+public class AdapterClassLoader extends ClassLoader {
+<span class="fc" id="L34">    private static final Hashtable classCache = new Hashtable();</span>
+    private Class c;
+
+    // private Log logger = LogFactory.getLog(this.getClass().getName());
+    private BSF_Log logger;
+
+<span class="fc" id="L40">    public AdapterClassLoader() {</span>
+<span class="fc" id="L41">        logger = BSF_LogFactory.getLog(this.getClass().getName());</span>
+<span class="fc" id="L42">    }</span>
+
+    public synchronized Class defineClass(final String name, final byte[] b) {
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if ((c = getLoadedClass(name)) == null) {</span>
+<span class="fc" id="L46">            final String tmpName = name.replace('/', '.');</span>
+
+            try {
+<span class="fc" id="L49">                c = defineClass(tmpName, b, 0, b.length); // rgf, 2006-02-03</span>
+<span class="nc" id="L50">            } catch (final NoClassDefFoundError e) // note &quot;Error&quot;: Java thread would be killed otherwise!</span>
+            {
+                // now try the Thread's current context class loader, but don't cache it
+<span class="nc" id="L53">                final ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">                if (tccl != null) {</span>
+                    try {
+<span class="nc" id="L56">                        final LocalThreadClassLoader ltcl = new LocalThreadClassLoader(tccl);</span>
+<span class="nc" id="L57">                        return ltcl.defineClass(tmpName, b);</span>
+<span class="nc" id="L58">                    } catch (final NoClassDefFoundError e1) // (NoClassDefFoundError e1)</span>
+                    {
+<span class="nc" id="L60">                        logger.error(&quot;AdapterClassLoader: NoClassDefFoundError ERROR for class [&quot; + tmpName + &quot;]!&quot;);</span>
+<span class="nc" id="L61">                        throw e1; // rethrow error</span>
+                    }
+                } else {
+<span class="nc" id="L64">                    logger.error(&quot;AdapterClassLoader: NoClassDefFoundError ERROR for class [&quot; + tmpName + &quot;] (info: Thread context class loader is 'null'.)!&quot;);</span>
+<span class="nc" id="L65">                    throw e; // rethrow error</span>
+                }
+<span class="fc" id="L67">            }</span>
+
+<span class="fc" id="L69">            put(name, c);</span>
+<span class="fc" id="L70">        } else {</span>
+<span class="nc" id="L71">            logger.error(&quot;AdapterClassLoader: &quot; + c + &quot; previously loaded. Can not redefine class.&quot;);</span>
+        }
+
+<span class="fc" id="L74">        return c;</span>
+    }
+
+    final protected Class findClass(final String name) {
+<span class="fc" id="L78">        return get(name);</span>
+    }
+
+    final protected Class get(final String name) {
+<span class="fc" id="L82">        return (Class) classCache.get(name);</span>
+    }
+
+    public synchronized Class getLoadedClass(final String name) {
+<span class="fc" id="L86">        Class c = findLoadedClass(name);</span>
+
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        if (c == null) {</span>
+            try {
+<span class="fc" id="L90">                c = findSystemClass(name);</span>
+<span class="fc" id="L91">            } catch (final ClassNotFoundException e) {</span>
+<span class="fc" id="L92">            }</span>
+        }
+
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (c == null) {</span>
+<span class="fc" id="L96">            c = findClass(name);</span>
+        }
+
+        // rgf, 2008-07-04
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (c == null) // not found so far, try to use the current Thread's context class loader instead</span>
+        {
+<span class="fc" id="L102">            final LocalThreadClassLoader ltcl = new LocalThreadClassLoader(Thread.currentThread().getContextClassLoader());</span>
+
+<span class="fc" id="L104">            c = ltcl.findLoadedClass(name, '0');</span>
+
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            if (c == null) {</span>
+                try {
+<span class="nc" id="L108">                    c = ltcl.findSystemClass(name, '0');</span>
+<span class="fc" id="L109">                } catch (final ClassNotFoundException e) {</span>
+                    try {
+<span class="nc" id="L111">                        c = ltcl.findClass(name, '0');</span>
+<span class="fc" id="L112">                    } catch (final ClassNotFoundException e1) {</span>
+<span class="nc" id="L113">                    }</span>
+<span class="nc" id="L114">                }</span>
+            }
+        }
+
+<span class="fc" id="L118">        return c;</span>
+    }
+
+    protected synchronized Class loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+<span class="fc" id="L122">        final Class c = getLoadedClass(name);</span>
+
+<span class="pc bpc" id="L124" title="2 of 4 branches missed.">        if (c != null &amp;&amp; resolve) {</span>
+<span class="nc" id="L125">            resolveClass(c);</span>
+        }
+
+<span class="fc" id="L128">        return c;</span>
+    }
+
+    final protected void put(final String name, final Class c) {
+<span class="fc" id="L132">        classCache.put(name, c);</span>
+<span class="fc" id="L133">    }</span>
+
+    /**
+     * Inner class to create a ClassLoader with the current Thread's class loader as parent.
+     */
+    class LocalThreadClassLoader extends ClassLoader {
+        // public LocalThreadClassLoader(){super (Thread.currentThread().getContextClassLoader());};
+<span class="fc" id="L140">        public LocalThreadClassLoader(final ClassLoader cl) {</span>
+<span class="fc" id="L141">            super(cl);</span>
+<span class="fc" id="L142">        }</span>
+
+        public Class defineClass(final String name, final byte[] b) {
+<span class="nc" id="L145">            return defineClass(name, b, 0, b.length); // protected in ClassLoader, hence invoking it this way</span>
+        }
+
+        // use a signature that allows invoking super's protected method via inheritance resolution
+        Class findLoadedClass(final String name, final char nixi) {
+<span class="fc" id="L150">            return findLoadedClass(name);</span>
+        }
+
+        // use a signature that allows invoking super's protected method via inheritance resolution
+        Class findClass(final String name, final char nixi) throws ClassNotFoundException {
+<span class="nc" id="L155">            return findClass(name);</span>
+        }
+
+        // use a signature that allows invoking super's protected method via inheritance resolution
+        Class findSystemClass(final String name, final char nixi) throws ClassNotFoundException {
+<span class="nc" id="L160">            return findSystemClass(name);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventAdapterRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util.event</a> &gt; <span class="el_source">EventAdapterRegistry.java</span></div><h1>EventAdapterRegistry.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util.event;
+
+import java.util.Hashtable;
+
+import org.apache.bsf.util.event.generator.EventAdapterGenerator;
+import org.apache.bsf.BSFManager;
+
+/**
+ * The &lt;em&gt;EventAdapterRegistry&lt;/em&gt; is the registry of event adapters. If a desired adapter is not found, the adapter will be dynamically generated when lookup
+ * is attempted. Set the &lt;code&gt;dynamic&lt;/code&gt; property to &lt;code&gt;false&lt;/code&gt; to disable this feature.
+ * &lt;p&gt;
+ * This implementation first looks for an adapter in its lookup table and if it doesn't find one looks for a standard implementation of that adapter in the
+ * org.apache.bsf.util.event.adapters package with a standard naming convention. The naming convention it assumes is the following: for event listener type
+ * {@code a.b.c.FooListener}, it loads an adapter of type {@code org.apache.bsf.util.event.adapters.a_b_c_FooAdapter}. If both the loading and the dynamic
+ * generation fail, then a &lt;code&gt;null&lt;/code&gt; is returned.
+ * &lt;p&gt;
+ *
+ * @see EventAdapter
+ */
+
+/*
+ * changed: 2012-01-29: Rony G. Flatscher, cf. [https://issues.apache.org/jira/browse/BSF-21]: - take into account that a context class loader may not be set
+ * 
+ * - new class loading sequence: - Thread's context class loader - settable class loader stored with EventAdapterRegistry - BSFManager's defining class loader
+ */
+
+<span class="fc" id="L44">public class EventAdapterRegistry {</span>
+<span class="fc" id="L45">    private static final Hashtable reg = new Hashtable();</span>
+    private static ClassLoader cl;
+    private static final String ADAPTER_PACKAGE = &quot;org.apache.bsf.util.event.adapters&quot;;
+    private static final String ADAPTER_SUFFIX = &quot;Adapter&quot;;
+<span class="fc" id="L49">    private static boolean dynamic = true;</span>
+
+    public static Class lookup(final Class listenerType) {
+<span class="nc" id="L52">        final String key = listenerType.getName().replace('.', '_');</span>
+<span class="nc" id="L53">        Class adapterClass = (Class) reg.get(key);</span>
+
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (adapterClass == null) {</span>
+<span class="nc" id="L56">            final String en = key.substring(0, key.lastIndexOf(&quot;Listener&quot;));</span>
+<span class="nc" id="L57">            final String cn = ADAPTER_PACKAGE + &quot;.&quot; + en + ADAPTER_SUFFIX;</span>
+
+<span class="nc bnc" id="L59" title="All 2 branches missed.">            if (adapterClass == null) { // get Thread's context class loader</span>
+<span class="nc" id="L60">                final ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">                if (tccl != null) {</span>
+                    try { // try supplied class loader
+<span class="nc" id="L63">                        adapterClass = Thread.currentThread().getContextClassLoader().loadClass(cn);</span>
+<span class="nc" id="L64">                    } catch (final ClassNotFoundException e02) {</span>
+<span class="nc" id="L65">                    }</span>
+                }
+            }
+
+            try { // try ClassLoader set in this object (cf. this.setClassLoader())
+<span class="nc bnc" id="L70" title="All 2 branches missed.">                if (cl != null) {</span>
+<span class="nc" id="L71">                    adapterClass = cl.loadClass(cn);</span>
+                }
+<span class="nc" id="L73">            } catch (final ClassNotFoundException e01) {</span>
+<span class="nc" id="L74">            }</span>
+
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (adapterClass == null) { // Defined CL</span>
+                try { // try supplied class loader
+<span class="nc" id="L78">                    final ClassLoader defCL = BSFManager.getDefinedClassLoader();</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">                    if (cl != defCL) {</span>
+<span class="nc" id="L80">                        adapterClass = defCL.loadClass(cn);</span>
+                    }
+<span class="nc" id="L82">                } catch (final ClassNotFoundException e03) {</span>
+<span class="nc" id="L83">                }</span>
+            }
+
+<span class="nc bnc" id="L86" title="All 4 branches missed.">            if (adapterClass == null &amp;&amp; dynamic) {</span>
+                // Unable to resolve one, try to generate one.
+<span class="nc" id="L88">                adapterClass = // if second argument is set to 'true', then the class file will be stored in the filesystem:</span>
+<span class="nc" id="L89">                        EventAdapterGenerator.makeEventAdapterClass(listenerType, false);</span>
+            }
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (adapterClass != null) {</span>
+<span class="nc" id="L93">                reg.put(key, adapterClass);</span>
+            }
+        }
+
+<span class="nc" id="L97">        return adapterClass;</span>
+    }
+
+    public static void register(final Class listenerType, final Class eventAdapterClass) {
+<span class="nc" id="L101">        final String key = listenerType.getName().replace('.', '_');</span>
+<span class="nc" id="L102">        reg.put(key, eventAdapterClass);</span>
+<span class="nc" id="L103">    }</span>
+
+    /**
+     * Class loader to use to load event adapter classes.
+     */
+    public static void setClassLoader(final ClassLoader cloader) {
+<span class="fc" id="L109">        cl = cloader;</span>
+<span class="fc" id="L110">    }</span>
+
+    /**
+     * Indicates whether or not to dynamically generate adapters; default is &lt;code&gt;true&lt;/code&gt;.
+     * &lt;p&gt;
+     * If the &lt;code&gt;dynamic&lt;/code&gt; property is set to true, and the &lt;code&gt;ClassLoader&lt;/code&gt; is unable to resolve an adapter, one will be dynamically generated.
+     *
+     * @param dynamic whether or not to dynamically generate adapters.
+     */
+    public static void setDynamic(final boolean dynamic) {
+<span class="fc" id="L120">        EventAdapterRegistry.dynamic = dynamic;</span>
+<span class="fc" id="L121">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

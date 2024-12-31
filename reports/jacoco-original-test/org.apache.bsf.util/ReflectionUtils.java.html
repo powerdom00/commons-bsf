@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReflectionUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">ReflectionUtils.java</span></div><h1>ReflectionUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util;
+
+import org.apache.bsf.BSFManager; // rgf, 20070917
+
+import java.beans.BeanInfo;
+import java.beans.Beans;
+import java.beans.EventSetDescriptor;
+import java.beans.FeatureDescriptor;
+import java.beans.IndexedPropertyDescriptor;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import java.util.TreeSet;
+import java.util.Comparator;
+import java.util.Iterator;
+
+import org.apache.bsf.util.event.EventAdapter;
+import org.apache.bsf.util.event.EventAdapterRegistry;
+import org.apache.bsf.util.event.EventProcessor;
+import org.apache.bsf.util.type.TypeConvertor;
+import org.apache.bsf.util.type.TypeConvertorRegistry;
+
+/**
+ * This file is a collection of reflection utilities. There are utilities for creating beans, getting bean infos, setting/getting properties, and binding
+ * events.
+ */
+/*
+ * 2007-09-21: Rony G. Flatscher, new class loading sequence:
+ * 
+ * - supplied class loader (given as an argument) - Thread's context class loader - BSFManager's defining class loader
+ * 
+ * 2011-10-29: Rony G. Flatscher, in case an event is not found, create a user-friendly error message that lists all available event names
+ * 
+ * 2011-10-29: Rony G. Flatscher, make sure that the context class loader is used only, if not null
+ */
+<span class="nc" id="L59">public class ReflectionUtils {</span>
+    // rgf, 20070921: class loaders that we might need to load classes
+<span class="fc" id="L61">    static ClassLoader bsfManagerDefinedCL = BSFManager.getDefinedClassLoader();</span>
+
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Add an event processor as a listener to some event coming out of an object.
+     *
+     * @param source       event source
+     * @param eventSetName name of event set from event src to bind to
+     * @param processor    event processor the event should be delegated to when it occurs; either via processEvent or processExceptionableEvent.
+     *
+     * @exception IntrospectionException    if unable to introspect
+     * @exception IllegalArgumentException  if event set is unknown
+     * @exception IllegalAccessException    if the event adapter class or initializer is not accessible.
+     * @exception InstantiationException    if event adapter instantiation fails
+     * @exception InvocationTargetException if something goes wrong while running add event listener method
+     */
+    public static void addEventListener(final Object source, final String eventSetName, final EventProcessor processor)
+            throws IntrospectionException, IllegalArgumentException, IllegalAccessException, InstantiationException, InvocationTargetException {
+        // find the event set descriptor for this event
+<span class="nc" id="L81">        final BeanInfo bi = Introspector.getBeanInfo(source.getClass());</span>
+
+<span class="nc" id="L83">        final EventSetDescriptor[] arrESD = bi.getEventSetDescriptors();</span>
+<span class="nc" id="L84">        final EventSetDescriptor esd = (EventSetDescriptor) findFeatureByName(&quot;event&quot;, eventSetName, arrESD);</span>
+
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (esd == null) // no events found, maybe a proxy from OpenOffice.org?</span>
+        {
+<span class="nc" id="L88">            String errMsg = &quot;event set '&quot; + eventSetName + &quot;' unknown for source type '&quot; + source.getClass() + &quot;': &quot;;</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (arrESD.length == 0) // no event sets found in class!</span>
+            {
+<span class="nc" id="L91">                errMsg = errMsg + &quot;class does not implement any event methods following Java's event pattern!&quot;;</span>
+            } else {
+                // errMsg=errMsg+&quot;class defines the following event set(s): {&quot;;
+<span class="nc" id="L94">                errMsg = errMsg + &quot;class defines the following event set(s): &quot;;</span>
+
+                // sort ESD by Name
+<span class="nc" id="L97">                final TreeSet ts = new TreeSet(new Comparator() {</span>
+                    public int compare(final Object o1, final Object o2) {
+<span class="nc" id="L99">                        return ((EventSetDescriptor) o1).getName().compareToIgnoreCase(((EventSetDescriptor) o2).getName());</span>
+                    }
+
+                    public boolean equals(final Object o1, final Object o2) {
+<span class="nc" id="L103">                        return ((EventSetDescriptor) o1).getName().equalsIgnoreCase(((EventSetDescriptor) o2).getName());</span>
+                    }
+                });
+
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                for (int i = 0; i &lt; arrESD.length; i++) {</span>
+<span class="nc" id="L108">                    ts.add(arrESD[i]);</span>
+                }
+<span class="nc" id="L110">                final Iterator it = ts.iterator(); // get iterator</span>
+
+<span class="nc" id="L112">                int i = 0;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                while (it.hasNext()) // iterate in sorted order</span>
+                {
+<span class="nc" id="L115">                    final EventSetDescriptor tmpESD = (EventSetDescriptor) it.next();</span>
+
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                    if (i &gt; 0) {</span>
+<span class="nc" id="L118">                        errMsg = errMsg + &quot;, &quot;;</span>
+                    }
+<span class="nc" id="L120">                    errMsg = errMsg + &quot;\n\t&quot; + '\'' + tmpESD.getName() + &quot;'={&quot;; // event set name</span>
+
+                    // iterate over listener methods and display their names in sorted order
+<span class="nc" id="L123">                    final Method[] m = tmpESD.getListenerMethods();</span>
+<span class="nc" id="L124">                    final TreeSet tsM = new TreeSet(new Comparator() {</span>
+                        public int compare(final Object o1, final Object o2) {
+<span class="nc" id="L126">                            return ((Method) o1).getName().compareToIgnoreCase(((Method) o2).getName());</span>
+                        }
+
+                        public boolean equals(final Object o1, final Object o2) {
+<span class="nc" id="L130">                            return ((Method) o1).getName().equalsIgnoreCase(((Method) o2).getName());</span>
+                        }
+                    });
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                    for (int j = 0; j &lt; m.length; j++) {</span>
+<span class="nc" id="L135">                        tsM.add(m[j]);</span>
+                    }
+<span class="nc" id="L137">                    final Iterator itM = tsM.iterator();</span>
+
+<span class="nc" id="L139">                    int j = 0;</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                    while (itM.hasNext()) {</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                        if (j &gt; 0) {</span>
+<span class="nc" id="L142">                            errMsg = errMsg + ',';</span>
+                        }
+<span class="nc" id="L144">                        errMsg = errMsg + '\'' + ((Method) itM.next()).getName() + '\'';</span>
+<span class="nc" id="L145">                        j++;</span>
+                    }
+<span class="nc" id="L147">                    errMsg = errMsg + '}'; // close event method set</span>
+<span class="nc" id="L148">                    i++;</span>
+<span class="nc" id="L149">                }</span>
+
+<span class="nc" id="L151">                errMsg = errMsg + &quot;.&quot;; // close set of event sets</span>
+            }
+<span class="nc" id="L153">            throw new IllegalArgumentException(errMsg);</span>
+        }
+
+        // get the class object for the event
+<span class="nc" id="L157">        final Class listenerType = esd.getListenerType(); // get ListenerType class object from EventSetDescriptor</span>
+
+        // find an event adapter class of the right type
+<span class="nc" id="L160">        final Class adapterClass = EventAdapterRegistry.lookup(listenerType);</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (adapterClass == null) {</span>
+<span class="nc" id="L162">            throw new IllegalArgumentException(&quot;event adapter for listener type &quot; + &quot;'&quot; + listenerType + &quot;' (eventset &quot; + &quot;'&quot; + eventSetName + &quot;') unknown&quot;);</span>
+        }
+
+        // create the event adapter and give it the event processor
+<span class="nc" id="L166">        final EventAdapter adapter = (EventAdapter) adapterClass.newInstance();</span>
+<span class="nc" id="L167">        adapter.setEventProcessor(processor);</span>
+
+        // bind the adapter to the source bean
+        Method addListenerMethod;
+        Object[] args;
+<span class="nc bnc" id="L172" title="All 4 branches missed.">        if (eventSetName.equals(&quot;propertyChange&quot;) || eventSetName.equals(&quot;vetoableChange&quot;)) {</span>
+            // In Java 1.2, beans may have direct listener adding methods
+            // for property and vetoable change events which take the
+            // property name as a filter to be applied at the event source.
+            // The filter property of the event processor should be used
+            // in this case to support the source-side filtering.
+            //
+            // ** TBD **: the following two lines need to change appropriately
+<span class="nc" id="L180">            addListenerMethod = esd.getAddListenerMethod();</span>
+<span class="nc" id="L181">            args = new Object[] { adapter };</span>
+        } else {
+<span class="nc" id="L183">            addListenerMethod = esd.getAddListenerMethod();</span>
+<span class="nc" id="L184">            args = new Object[] { adapter };</span>
+        }
+<span class="nc" id="L186">        addListenerMethod.invoke(source, args);</span>
+<span class="nc" id="L187">    }</span>
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Create a bean using given class loader and using the appropriate constructor for the given args of the given arg types.
+     * 
+     * @param cld       the class loader to use. If null, Class.forName is used.
+     * @param className name of class to instantiate
+     * @param argTypes  array of argument types
+     * @param args      array of arguments
+     *
+     * @return the newly created bean
+     *
+     * @exception ClassNotFoundException    if class is not loaded
+     * @exception NoSuchMethodException     if constructor can't be found
+     * @exception InstantiationException    if class can't be instantiated
+     * @exception IllegalAccessException    if class is not accessible
+     * @exception IllegalArgumentException  if argument problem
+     * @exception InvocationTargetException if constructor excepted
+     * @exception IOException               if I/O error in beans.instantiate
+     */
+    public static Bean createBean(final ClassLoader cld, final String className, final Class[] argTypes, final Object[] args) throws ClassNotFoundException,
+            NoSuchMethodException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException {
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">        if (argTypes != null) {</span>
+
+            // if class loader given, use that one, else try
+            // the Thread's context class loader (if set) and then
+            // the BSFMananger defining class loader
+<span class="fc" id="L215">            Class cl = null;</span>
+<span class="fc" id="L216">            ClassNotFoundException exCTX = null;</span>
+
+// -----------------------------
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            if (cld != null) { // class loader supplied as argument</span>
+                try { // CL passed as argument
+<span class="nc" id="L221">                    cl = cld.loadClass(className);</span>
+<span class="nc" id="L222">                } catch (final ClassNotFoundException e02) {</span>
+<span class="nc" id="L223">                    exCTX = e02;</span>
+<span class="nc" id="L224">                }</span>
+            }
+
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">            if (cl == null) {</span>
+                // load context class loader, only use it, if not null
+<span class="fc" id="L229">                final ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">                if (tccl != null) {</span>
+                    try { // CTXCL
+<span class="fc" id="L232">                        cl = tccl.loadClass(className);</span>
+<span class="nc" id="L233">                    } catch (final ClassNotFoundException e01) {</span>
+<span class="fc" id="L234">                    }</span>
+                }
+            }
+
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">            if (cl == null) { // class not loaded yet</span>
+                // defined CL
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                if (cld != bsfManagerDefinedCL) { // if not used already, attempt to load</span>
+<span class="nc" id="L241">                    cl = bsfManagerDefinedCL.loadClass(className);</span>
+                } else { // classloader was already used, hence re-throw exception
+<span class="nc" id="L243">                    throw exCTX; // re-throw very first exception</span>
+                }
+            }
+// -----------------------------
+
+<span class="fc" id="L248">            final Constructor c = MethodUtils.getConstructor(cl, argTypes);</span>
+<span class="fc" id="L249">            return new Bean(cl, c.newInstance(args));</span>
+        } else {
+            // create the bean with no args constructor
+<span class="nc" id="L252">            final Object obj = Beans.instantiate(cld, className);</span>
+<span class="nc" id="L253">            return new Bean(obj.getClass(), obj);</span>
+        }
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Create a bean using given class loader and using the appropriate constructor for the given args. Figures out the arg types and calls above.
+     * 
+     * @param cld       the class loader to use. If null, Class.forName is used.
+     * @param className name of class to instantiate
+     * @param args      array of arguments
+     *
+     * @return the newly created bean
+     *
+     * @exception ClassNotFoundException    if class is not loaded
+     * @exception NoSuchMethodException     if constructor can't be found
+     * @exception InstantiationException    if class can't be instantiated
+     * @exception IllegalAccessException    if class is not accessible
+     * @exception IllegalArgumentException  if argument problem
+     * @exception InvocationTargetException if constructor excepted
+     * @exception IOException               if I/O error in beans.instantiate
+     */
+    public static Bean createBean(final ClassLoader cld, final String className, final Object[] args) throws ClassNotFoundException, NoSuchMethodException,
+            InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException {
+<span class="nc" id="L277">        Class[] argTypes = null;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (args != null) {</span>
+<span class="nc" id="L279">            argTypes = new Class[args.length];</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">                argTypes[i] = (args[i] != null) ? args[i].getClass() : null;</span>
+            }
+        }
+<span class="nc" id="L284">        return createBean(cld, className, argTypes, args);</span>
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * locate the item in the fds array whose name is as given. returns null if not found.
+     */
+    private static FeatureDescriptor findFeatureByName(final String featureType, final String name, final FeatureDescriptor[] fds) {
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        for (int i = 0; i &lt; fds.length; i++) {</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            if (name.equals(fds[i].getName())) {</span>
+<span class="nc" id="L294">                return fds[i];</span>
+            }
+        }
+<span class="nc" id="L297">        return null;</span>
+    }
+
+    public static Bean getField(final Object target, final String fieldName) throws IllegalArgumentException, IllegalAccessException {
+        // This is to handle how we do static fields.
+<span class="nc bnc" id="L302" title="All 2 branches missed.">        final Class targetClass = (target instanceof Class) ? (Class) target : target.getClass();</span>
+
+        try {
+<span class="nc" id="L305">            final Field f = targetClass.getField(fieldName);</span>
+<span class="nc" id="L306">            final Class fieldType = f.getType();</span>
+
+            // Get the value and return it.
+<span class="nc" id="L309">            final Object value = f.get(target);</span>
+<span class="nc" id="L310">            return new Bean(fieldType, value);</span>
+<span class="nc" id="L311">        } catch (final NoSuchFieldException e) {</span>
+<span class="nc" id="L312">            throw new IllegalArgumentException(&quot;field '&quot; + fieldName + &quot;' is &quot; + &quot;unknown for '&quot; + target + &quot;'&quot;);</span>
+        }
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Get a property of a bean.
+     *
+     * @param target   the object whose prop is to be gotten
+     * @param propName name of the property to set
+     * @param index    index to get (if property is indexed)
+     *
+     * @exception IntrospectionException    if unable to introspect
+     * @exception IllegalArgumentException  if problems with args: if the property is unknown, or if the property is given an index when its not, or if the
+     *                                      property is not writeable, or if the given value cannot be assigned to the it (type mismatch).
+     * @exception IllegalAccessException    if read method is not accessible
+     * @exception InvocationTargetException if read method excepts
+     */
+    public static final String PROPERTYEC=&quot;property '&quot;;
+    public static Bean getProperty(final Object target, final String propName, final Integer index)
+            throws IntrospectionException, IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        // find the property descriptor
+<span class="nc" id="L334">        final BeanInfo bi = Introspector.getBeanInfo(target.getClass());</span>
+<span class="nc" id="L335">        final PropertyDescriptor pd = (PropertyDescriptor) findFeatureByName(&quot;property&quot;, propName, bi.getPropertyDescriptors());</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if (pd == null) {</span>
+<span class="nc" id="L337">            throw new IllegalArgumentException(PROPERTYEC + propName + &quot;' is &quot; + &quot;unknown for '&quot; + target + &quot;'&quot;);</span>
+        }
+
+        // get read method and type of property
+        Method rm;
+        Class propType;
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (index != null) {</span>
+            // if index != null, then property is indexed - pd better be so too
+<span class="nc bnc" id="L345" title="All 2 branches missed.">            if (!(pd instanceof IndexedPropertyDescriptor)) {</span>
+<span class="nc" id="L346">                throw new IllegalArgumentException(&quot;attempt to get non-indexed &quot; + PROPERTYEC + propName + &quot;' as being indexed&quot;);</span>
+            }
+<span class="nc" id="L348">            final IndexedPropertyDescriptor ipd = (IndexedPropertyDescriptor) pd;</span>
+<span class="nc" id="L349">            rm = ipd.getIndexedReadMethod();</span>
+<span class="nc" id="L350">            propType = ipd.getIndexedPropertyType();</span>
+<span class="nc" id="L351">        } else {</span>
+<span class="nc" id="L352">            rm = pd.getReadMethod();</span>
+<span class="nc" id="L353">            propType = pd.getPropertyType();</span>
+        }
+
+<span class="nc bnc" id="L356" title="All 2 branches missed.">        if (rm == null) {</span>
+<span class="nc" id="L357">            throw new IllegalArgumentException(PROPERTYEC + propName + &quot;' is not readable&quot;);</span>
+        }
+
+        // now get the value
+<span class="nc" id="L361">        Object propVal = null;</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">        if (index != null) {</span>
+<span class="nc" id="L363">            propVal = rm.invoke(target, new Object[] { index });</span>
+        } else {
+<span class="nc" id="L365">            propVal = rm.invoke(target, null);</span>
+        }
+<span class="nc" id="L367">        return new Bean(propType, propVal);</span>
+    }
+
+    public static void setField(final Object target, final String fieldName, final Bean value, final TypeConvertorRegistry tcr)
+            throws IllegalArgumentException, IllegalAccessException {
+        // This is to handle how we do static fields.
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        final Class targetClass = (target instanceof Class) ? (Class) target : target.getClass();</span>
+
+        try {
+<span class="nc" id="L376">            final Field f = targetClass.getField(fieldName);</span>
+<span class="nc" id="L377">            final Class fieldType = f.getType();</span>
+
+            // type convert the value if necessary
+<span class="nc" id="L380">            Object fieldVal = null;</span>
+<span class="nc" id="L381">            boolean okeydokey = true;</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            if (fieldType.isAssignableFrom(value.type)) {</span>
+<span class="nc" id="L383">                fieldVal = value.value;</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">            } else if (tcr != null) {</span>
+<span class="nc" id="L385">                final TypeConvertor cvtor = tcr.lookup(value.type, fieldType);</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">                if (cvtor != null) {</span>
+<span class="nc" id="L387">                    fieldVal = cvtor.convert(value.type, fieldType, value.value);</span>
+                } else {
+<span class="nc" id="L389">                    okeydokey = false;</span>
+                }
+<span class="nc" id="L391">            } else {</span>
+<span class="nc" id="L392">                okeydokey = false;</span>
+            }
+<span class="nc bnc" id="L394" title="All 2 branches missed.">            if (!okeydokey) {</span>
+<span class="nc" id="L395">                throw new IllegalArgumentException(&quot;unable to assign '&quot; + value.value + &quot;' to field '&quot; + fieldName + &quot;'&quot;);</span>
+            }
+
+            // now set the value
+<span class="nc" id="L399">            f.set(target, fieldVal);</span>
+<span class="nc" id="L400">        } catch (final NoSuchFieldException e) {</span>
+<span class="nc" id="L401">            throw new IllegalArgumentException(&quot;field '&quot; + fieldName + &quot;' is &quot; + &quot;unknown for '&quot; + target + &quot;'&quot;);</span>
+<span class="nc" id="L402">        }</span>
+<span class="nc" id="L403">    }</span>
+    //////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Set a property of a bean to a given value.
+     *
+     * @param target    the object whose prop is to be set
+     * @param propName  name of the property to set
+     * @param index     index to set (if property is indexed)
+     * @param value     the property value
+     * @param valueType the type of the above (needed when its null)
+     * @param tcr       type convertor registry to use to convert value type to property type if necessary
+     *
+     * @exception IntrospectionException    if unable to introspect
+     * @exception IllegalArgumentException  if problems with args: if the property is unknown, or if the property is given an index when its not, or if the
+     *                                      property is not writeable, or if the given value cannot be assigned to the it (type mismatch).
+     * @exception IllegalAccessException    if write method is not accessible
+     * @exception InvocationTargetException if write method excepts
+     */
+    public static void setProperty(final Object target, final String propName, final Integer index, final Object value, final Class valueType,
+            final TypeConvertorRegistry tcr) throws IntrospectionException, IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        // find the property descriptor
+<span class="nc" id="L425">        final BeanInfo bi = Introspector.getBeanInfo(target.getClass());</span>
+<span class="nc" id="L426">        final PropertyDescriptor pd = (PropertyDescriptor) findFeatureByName(&quot;property&quot;, propName, bi.getPropertyDescriptors());</span>
+<span class="nc bnc" id="L427" title="All 2 branches missed.">        if (pd == null) {</span>
+<span class="nc" id="L428">            throw new IllegalArgumentException(PROPERTYEC + propName + &quot;' is &quot; + &quot;unknown for '&quot; + target + &quot;'&quot;);</span>
+        }
+
+        // get write method and type of property
+        Method wm;
+        Class propType;
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        if (index != null) {</span>
+            // if index != null, then property is indexed - pd better be so too
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            if (!(pd instanceof IndexedPropertyDescriptor)) {</span>
+<span class="nc" id="L437">                throw new IllegalArgumentException(&quot;attempt to set non-indexed &quot; + PROPERTYEC + propName + &quot;' as being indexed&quot;);</span>
+            }
+<span class="nc" id="L439">            final IndexedPropertyDescriptor ipd = (IndexedPropertyDescriptor) pd;</span>
+<span class="nc" id="L440">            wm = ipd.getIndexedWriteMethod();</span>
+<span class="nc" id="L441">            propType = ipd.getIndexedPropertyType();</span>
+<span class="nc" id="L442">        } else {</span>
+<span class="nc" id="L443">            wm = pd.getWriteMethod();</span>
+<span class="nc" id="L444">            propType = pd.getPropertyType();</span>
+        }
+
+<span class="nc bnc" id="L447" title="All 2 branches missed.">        if (wm == null) {</span>
+<span class="nc" id="L448">            throw new IllegalArgumentException(PROPERTYEC + propName + &quot;' is not writeable&quot;);</span>
+        }
+
+        // type convert the value if necessary
+<span class="nc" id="L452">        Object propVal = null;</span>
+<span class="nc" id="L453">        boolean okeydokey = true;</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">        if (propType.isAssignableFrom(valueType)) {</span>
+<span class="nc" id="L455">            propVal = value;</span>
+<span class="nc bnc" id="L456" title="All 2 branches missed.">        } else if (tcr != null) {</span>
+<span class="nc" id="L457">            final TypeConvertor cvtor = tcr.lookup(valueType, propType);</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">            if (cvtor != null) {</span>
+<span class="nc" id="L459">                propVal = cvtor.convert(valueType, propType, value);</span>
+            } else {
+<span class="nc" id="L461">                okeydokey = false;</span>
+            }
+<span class="nc" id="L463">        } else {</span>
+<span class="nc" id="L464">            okeydokey = false;</span>
+        }
+<span class="nc bnc" id="L466" title="All 2 branches missed.">        if (!okeydokey) {</span>
+<span class="nc" id="L467">            throw new IllegalArgumentException(&quot;unable to assign '&quot; + value + &quot;' to property '&quot; + propName + &quot;'&quot;);</span>
+        }
+
+        // now set the value
+<span class="nc bnc" id="L471" title="All 2 branches missed.">        if (index != null) {</span>
+<span class="nc" id="L472">            wm.invoke(target, new Object[] { index, propVal });</span>
+        } else {
+<span class="nc" id="L474">            wm.invoke(target, new Object[] { propVal });</span>
+        }
+<span class="nc" id="L476">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

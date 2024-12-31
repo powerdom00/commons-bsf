@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EngineUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">EngineUtils.java</span></div><h1>EngineUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
+import org.apache.bsf.BSFEngine;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+
+/**
+ * This class contains utilities that language integrators can use when implementing the BSFEngine interface.
+ */
+
+/*
+ * 2012-01-15: Rony G. Flatscher - take into account that the context thread class loader is not set, hence raise an exception in loadClass(mgr,name) instead of
+ * returning null - corrected some indentations
+ * 
+ * 2007-09-21: Rony G. Flatscher, new class loading sequence:
+ * 
+ * - Thread's context class loader - settable class loader stored with BSF manager - BSFManager's defining class loader - BSF-custom class loader (loads from
+ * temp dir)
+ */
+<span class="nc" id="L41">public class EngineUtils {</span>
+    // the BSF class loader that knows how to load from the a specific
+    // temp directory
+    static BSFClassLoader bsfCL;
+
+    // rgf, 20070917: class loaders that we might need to load classes
+<span class="fc" id="L47">    static ClassLoader bsfManagerDefinedCL = BSFManager.getDefinedClassLoader();</span>
+
+    // ---rgf, 2003-02-13, determine whether changing accessibility of Methods is possible
+<span class="fc" id="L50">    static boolean bMethodHasSetAccessible = false;</span>
+    static {
+<span class="fc" id="L52">        final Class mc = Method.class; // get the &quot;Method&quot; class object</span>
+<span class="fc" id="L53">        final Class[] arg = { boolean.class }; // define an array with the primitive &quot;boolean&quot; pseudo class object</span>
+        try {
+<span class="fc" id="L55">            mc.getMethod(&quot;setAccessible&quot;, arg); // is this method available?</span>
+<span class="fc" id="L56">            bMethodHasSetAccessible = true; // no exception, hence method exists</span>
+<span class="nc" id="L57">        } catch (final Exception e) {</span>
+<span class="nc" id="L58">            bMethodHasSetAccessible = false;// exception occurred, hence method does not exist</span>
+<span class="fc" id="L59">        }</span>
+<span class="fc" id="L60">    }</span>
+
+    /**
+     * Add a script as a listener to some event coming out of an object. The first two args identify the src of the event and the event set and the rest
+     * identify the script which should be run when the event fires.
+     *
+     * @param bean         event source
+     * @param eventSetName name of event set from event src to bind to
+     * @param filter       filter for events
+     * @param engine       BSFEngine which can run this script
+     * @param manager      BSFManager of the above engine
+     * @param source       (context info) the source of this expression (e.g., filename)
+     * @param lineNo       (context info) the line number in source for expr
+     * @param columnNo     (context info) the column number in source for expr
+     * @param script       the script to execute when the event occurs
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public static void addEventListener(final Object bean, final String eventSetName, final String filter, final BSFEngine engine, final BSFManager manager,
+            final String source, final int lineNo, final int columnNo, final Object script) throws BSFException {
+<span class="fc" id="L80">        final BSFEventProcessor ep = new BSFEventProcessor(engine, manager, filter, source, lineNo, columnNo, script);</span>
+
+        try {
+<span class="nc" id="L83">            ReflectionUtils.addEventListener(bean, eventSetName, ep);</span>
+<span class="fc" id="L84">        } catch (final Exception e) {</span>
+<span class="fc" id="L85">            e.printStackTrace();</span>
+<span class="fc" id="L86">            throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;[EngineUtils.addEventListener()] ouch while adding event listener: &quot; + e, e);</span>
+<span class="nc" id="L87">        }</span>
+<span class="nc" id="L88">    }</span>
+
+    /**
+     * Add a script as a listener to some event coming out of an object. The first two args identify the src of the event and the event set and the rest
+     * identify the script which should be run when the event fires. The processing will use the engine's apply() method.
+     *
+     * @param bean                    event source
+     * @param eventSetName            name of event set from event src to bind to
+     * @param filter                  filter for events
+     * @param engine                  BSFEngine which can run this script
+     * @param manager                 BSFManager of the above engine
+     * @param source                  (context info) the source of this expression (e.g., filename)
+     * @param lineNo                  (context info) the line number in source for expr
+     * @param columnNo                (context info) the column number in source for expr
+     * @param script                  the script to execute when the event occurs
+     * @param dataFromScriptingEngine this contains any object supplied by the scripting engine and gets sent back with the supplied script, if the event
+     *                                occurs. This could be used e.g. for indicating to the scripting engine which scripting engine
+     *                                object/routine/function/procedure should be ultimately informed of the event occurrence.
+     *
+     * @exception BSFException if anything goes wrong while running the script
+     */
+    public static void addEventListenerReturningEventInfos(final Object bean, final String eventSetName, final String filter, final BSFEngine engine,
+            final BSFManager manager, final String source, final int lineNo, final int columnNo, final Object script, final Object dataFromScriptingEngine)
+            throws BSFException {
+<span class="fc" id="L112">        final BSFEventProcessorReturningEventInfos ep = new BSFEventProcessorReturningEventInfos(engine, manager, filter, source, lineNo, columnNo, script,</span>
+                dataFromScriptingEngine);
+
+        try {
+<span class="nc" id="L116">            ReflectionUtils.addEventListener(bean, eventSetName, ep);</span>
+<span class="fc" id="L117">        } catch (final Exception e) {</span>
+<span class="fc" id="L118">            e.printStackTrace();</span>
+<span class="fc" id="L119">            throw new BSFException(BSFException.REASON_OTHER_ERROR,</span>
+                    &quot;[EngineUtils.addEventListenerReturningEventInfos()] ouch while adding event listener: &quot; + e, e);
+<span class="nc" id="L121">        }</span>
+<span class="nc" id="L122">    }</span>
+
+    /**
+     * Finds and invokes a method with the given signature on the given bean. The signature of the method that's invoked is first taken as the types of the
+     * args, but if that fails, this tries to convert any primitive wrapper type args to their primitive counterparts to see whether a method exists that way.
+     * If it does, done.
+     *
+     * @param bean       the object on which to invoke the method
+     * @param methodName name of the method
+     * @param args       arguments to be given to the method
+     *
+     * @return the result of invoking the method, if any
+     *
+     * @exception BSFException if something goes wrong
+     */
+    public static Class[] getArgTypes(final Object[] args){
+        // determine arg types. note that a null argtype
+        // matches any object type
+<span class="fc" id="L140">        Class[] argTypes = null;</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        if (args != null) {</span>
+<span class="fc" id="L142">            argTypes = new Class[args.length];</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">                argTypes[i] = (args[i] == null) ? null : args[i].getClass();</span>
+            }
+        }
+<span class="fc" id="L147">        return argTypes;</span>
+    }
+    public static Class getNumberType(Object arg){
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">            if (arg instanceof Byte) {</span>
+<span class="nc" id="L151">                return byte.class;</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">            } else if (arg instanceof Integer) {</span>
+<span class="fc" id="L153">                return int.class;</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            } else if (arg instanceof Long) {</span>
+<span class="nc" id="L155">                return long.class;</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            } else if (arg instanceof Float) {</span>
+<span class="nc" id="L157">                return float.class;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            } else if (arg instanceof Double) {</span>
+<span class="nc" id="L159">                return double.class;</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            } else if (arg instanceof Short) {</span>
+<span class="nc" id="L161">                return short.class;</span>
+            }
+<span class="nc" id="L163">            return null;</span>
+    }
+    public static Class checkType(Object arg){
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        if (arg instanceof Number) {</span>
+<span class="fc" id="L167">            return getNumberType(arg);</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        } else if (arg instanceof Boolean) {</span>
+<span class="nc" id="L169">            return boolean.class;</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        } else if (arg instanceof Character) {</span>
+<span class="nc" id="L171">            return char.class;</span>
+        }
+<span class="fc" id="L173">        return null;</span>
+    }
+
+    public static Object callBeanMethod(final Object bean, final String methodName, final Object[] args) throws BSFException {
+<span class="fc" id="L177">        Class[] argTypes = getArgTypes(args);</span>
+        // we want to allow a static call to occur on an object, similar
+        // to what Java allows. So isStaticOnly is set to false.
+<span class="fc" id="L180">        final boolean isStaticOnly = false;</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        final Class beanClass = (bean instanceof Class) ? (Class) bean : bean.getClass();</span>
+
+        // now try to call method with the right signature
+        try {
+            Method m;
+            try {
+<span class="fc" id="L187">                m = MethodUtils.getMethod(beanClass, methodName, argTypes, isStaticOnly);</span>
+<span class="fc" id="L188">            } catch (final NoSuchMethodException e) {</span>
+                // ok, so that didn't work - now try converting any primitive
+                // wrapper types to their primitive counterparts
+                try {
+                    // if args is null the NullPointerException will get caught
+                    // below and the right thing'll happen .. ugly but works
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">                    for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="fc" id="L195">                        argTypes[i] = checkType(args[i]);</span>
+                    }
+
+<span class="nc" id="L198">                    m = MethodUtils.getMethod(beanClass, methodName, argTypes, isStaticOnly);</span>
+<span class="fc" id="L199">                } catch (final Exception e2) {</span>
+                    // throw the original
+<span class="fc" id="L201">                    throw e;</span>
+<span class="nc" id="L202">                }</span>
+<span class="fc" id="L203">            }</span>
+
+            // call it, and return the result
+            try {
+<span class="fc" id="L207">                return m.invoke(bean, args);</span>
+<span class="nc" id="L208">            } catch (final Exception e) // 2003-02-23, --rgf, maybe an IllegalAccessException?</span>
+            {
+<span class="nc bnc" id="L210" title="All 6 branches missed.">                if (e instanceof IllegalAccessException &amp;&amp; bMethodHasSetAccessible &amp;&amp; Modifier.isPublic(m.getModifiers())) // if a public method allow access to</span>
+                                                                                                                           // it
+                {
+<span class="nc" id="L213">                    m.setAccessible(true); // allow unconditional access to method</span>
+<span class="nc" id="L214">                    return m.invoke(bean, args);</span>
+                }
+                // re-throw the exception
+<span class="nc" id="L217">                throw e;</span>
+            }
+
+<span class="fc" id="L220">        } catch (final Exception e) {</span>
+            // something went wrong while invoking method
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            final Throwable t = (e instanceof InvocationTargetException) ? ((InvocationTargetException) e).getTargetException() : null;</span>
+<span class="fc" id="L223">            throw new BSFException(BSFException.REASON_OTHER_ERROR,</span>
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">                    &quot;[EngineUtils.callBeanMethod()] method invocation failed: &quot; + e + ((t == null) ? &quot;&quot; : (&quot; target exception: &quot; + t)), t);</span>
+        }
+    }
+
+    /**
+     * Creates a new bean. The signature of the constructor that's invoked is first taken as the types of the args, but if that fails, this tries to convert any
+     * primitive wrapper type args to their primitive counterparts to see whether a method exists that way. If it does, done.
+     *
+     * @param className fully qualified name of class to instantiate
+     * @param args      array of constructor args (or null if none)
+     *
+     * @return the created bean
+     *
+     * @exception BSFException if something goes wrong (@see org.apache.cs.util.MethodUtils for the real exceptions that can occur).
+     */
+    public static Class[] checkAndSetTypesArg(final Object args[]){
+<span class="fc" id="L240">        Class[] argTypes = null;</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        if (args != null) {</span>
+<span class="fc" id="L242">            argTypes = new Class[args.length];</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">                argTypes[i] = (args[i] != null) ? args[i].getClass() : null;</span>
+            }
+        }
+<span class="fc" id="L247">        return argTypes;</span>
+    }
+    public static Object createBean(final String className, final Object args[]) throws BSFException {
+        Bean obj;
+<span class="fc" id="L251">        Class[] argTypes = checkAndSetTypesArg(args);</span>
+        try {
+            try {
+<span class="fc" id="L254">                obj = ReflectionUtils.createBean(null, className, argTypes, args);</span>
+<span class="fc" id="L255">                return obj.value;</span>
+<span class="nc" id="L256">            } catch (final NoSuchMethodException me) {</span>
+                // ok, so that didn't work - now try converting any primitive
+                // wrapper types to their primitive counterparts
+                try {
+                    // if args is null the NullPointerException will get caught
+                    // below and the right thing'll happen .. ugly but works
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                    for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                        if (args[i] instanceof Number) {</span>
+<span class="nc" id="L264">                            argTypes[i] = byte.class;</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                        } else if (args[i] instanceof Boolean) {</span>
+<span class="nc" id="L266">                            argTypes[i] = boolean.class;</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                        } else if (args[i] instanceof Character) {</span>
+<span class="nc" id="L268">                            argTypes[i] = char.class;</span>
+                        }
+                    }
+<span class="nc" id="L271">                    obj = ReflectionUtils.createBean(null, className, argTypes, args);</span>
+<span class="nc" id="L272">                    return obj.value;</span>
+<span class="nc" id="L273">                } catch (final Exception e) {</span>
+                    // throw the previous exception
+<span class="nc" id="L275">                    throw me;</span>
+                }
+            }
+<span class="fc" id="L278">        } catch (final Exception e) {</span>
+<span class="fc" id="L279">            throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;[EngineUtils.createBean()]&quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    /**
+     * Given a class return the type signature string fragment for it. That is, return &quot;I&quot; for int, &quot;J&quot; for long, ... etc..
+     *
+     * @param cl class object for whom the signature fragment is needed.
+     *
+     * @return the string representing the type signature
+     */
+    public static String getTypeSignatureString(final Class cl) {
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        if (cl.isPrimitive()) {</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">            if (cl == boolean.class) {</span>
+<span class="nc" id="L293">                return &quot;Z&quot;;</span>
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">            } else if (cl == byte.class) {</span>
+<span class="nc" id="L295">                return &quot;B&quot;;</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">            } else if (cl == char.class) {</span>
+<span class="nc" id="L297">                return &quot;C&quot;;</span>
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">            } else if (cl == short.class) {</span>
+<span class="nc" id="L299">                return &quot;S&quot;;</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">            } else if (cl == int.class) {</span>
+<span class="fc" id="L301">                return &quot;I&quot;;</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">            } else if (cl == long.class) {</span>
+<span class="nc" id="L303">                return &quot;J&quot;;</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">            } else if (cl == float.class) {</span>
+<span class="nc" id="L305">                return &quot;F&quot;;</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">            } else if (cl == double.class) {</span>
+<span class="nc" id="L307">                return &quot;D&quot;;</span>
+            } else {
+<span class="nc" id="L309">                return &quot;V&quot;;</span>
+            }
+        } else {
+<span class="fc" id="L312">            final StringBuilder sb = new StringBuilder(&quot;L&quot;);</span>
+<span class="fc" id="L313">            sb.append(cl.getName());</span>
+<span class="fc" id="L314">            sb.append(&quot;;&quot;);</span>
+<span class="fc" id="L315">            return sb.toString().replace('.', '/');</span>
+        }
+    }
+
+    /**
+     * Loads a class using the following sequence of class loaders:
+     * &lt;ul&gt;
+     * &lt;li&gt;Thread's context class loader,
+     * &lt;li&gt;settable class loader stored with BSFManager,
+     * &lt;li&gt;BSFManager's defining class loader,
+     * &lt;li&gt;BSF customized class loader (from the BSFManager's temporary directory).
+     *
+     * @param mgr  BSFManager who's classLoader and tempDir props are consulted
+     * @param name name of the class to load
+     *
+     * @return the loaded class
+     *
+     * @exception BSFException if something goes wrong.
+     */
+    public static Class loadClass(final BSFManager mgr, final String name) throws BSFException {
+
+<span class="fc" id="L336">        ClassLoader mgrCL = null;</span>
+
+        try {
+            // TCCL may not be set, adapt logic!
+<span class="fc" id="L340">            final ClassLoader cl = Thread.currentThread().getContextClassLoader();</span>
+<span class="pc bpc" id="L341" title="1 of 2 branches missed.">            if (cl != null) {</span>
+                try { // try the Thread's context loader first
+<span class="nc" id="L343">                    return Thread.currentThread().getContextClassLoader().loadClass(name);</span>
+<span class="fc" id="L344">                } catch (final ClassNotFoundException e01) {</span>
+                }
+            }
+
+            try { // try the class loader of the supplied BSFManager (&quot;mgr&quot;)
+<span class="nc" id="L349">                mgrCL = mgr.getClassLoader();</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">                if (mgrCL != null) {</span>
+<span class="nc" id="L351">                    return mgrCL.loadClass(name);</span>
+                }
+<span class="nc" id="L353">            } catch (final ClassNotFoundException e02) {</span>
+                // o.k., now try the defined class loader
+<span class="nc" id="L355">            }</span>
+
+            // try the class loader stored with the BSF manager
+<span class="nc bnc" id="L358" title="All 2 branches missed.">            if (mgrCL != bsfManagerDefinedCL) {</span>
+<span class="nc" id="L359">                return bsfManagerDefinedCL.loadClass(name);</span>
+            }
+
+<span class="nc" id="L362">        } catch (final ClassNotFoundException e) {</span>
+            // try to load it from the temp dir using my own class loader
+            try {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">                if (bsfCL == null) {</span>
+<span class="nc" id="L366">                    bsfCL = new BSFClassLoader();</span>
+                }
+<span class="nc" id="L368">                bsfCL.setTempDir(mgr.getTempDir());</span>
+<span class="nc" id="L369">                return bsfCL.loadClass(name);</span>
+<span class="nc" id="L370">            } catch (final ClassNotFoundException e2) {</span>
+<span class="nc" id="L371">                throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;[EngineUtils.loadClass()] unable to load class '&quot; + name + &quot;':&quot; + e, e);</span>
+            }
+<span class="nc" id="L373">        }</span>
+
+<span class="nc" id="L375">        throw new BSFException(BSFException.REASON_OTHER_ERROR, &quot;[EngineUtils.loadClass()] unable to load class '&quot; + name + &quot;'&quot;);</span>
+    }
+    public static String replacePlaceholder(String script,String classname,String placeholder){
+<span class="nc" id="L378">        int startpoint = script.indexOf(placeholder);</span>
+        int endpoint;
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        if (startpoint &gt;= 0) {</span>
+<span class="nc" id="L381">            final StringBuilder changed = new StringBuilder();</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            for (; startpoint &gt;= 0; startpoint = script.indexOf(placeholder, startpoint)) {</span>
+<span class="nc" id="L383">                changed.setLength(0); // Reset for 2nd pass or later</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">                if (startpoint &gt; 0) {</span>
+<span class="nc" id="L385">                    changed.append(script.substring(0, startpoint));</span>
+                }
+<span class="nc" id="L387">                changed.append(classname);</span>
+<span class="nc" id="L388">                endpoint = startpoint + placeholder.length();</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">                if (endpoint &lt; script.length()) {</span>
+<span class="nc" id="L390">                    changed.append(script.substring(endpoint));</span>
+                }
+<span class="nc" id="L392">                script = changed.toString();</span>
+            }
+        }
+<span class="nc" id="L395">        return script;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

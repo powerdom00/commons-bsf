@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BSFEventProcessorReturningEventInfos.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">BSFEventProcessorReturningEventInfos.java</span></div><h1>BSFEventProcessorReturningEventInfos.java</h1><pre class="source lang-java linenums">/*
+ * This software consists of voluntary contributions made by many individuals
+ * on behalf of the Apache Software Foundation and was originally created by
+ * Sanjiva Weerawarana and others at International Business Machines
+ * Corporation. For more information on the Apache Software Foundation,
+ * please see &lt;http://www.apache.org/&gt;.
+ *
+ * 2012-01-15, Rony G. Flatscher
+ *     - make event name comparisons case independent, Jira issue [BSF-19]
+ */
+
+package org.apache.bsf.util;
+
+import java.util.Vector;
+
+import org.apache.bsf.BSFEngine;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.util.event.EventProcessor;
+
+/*
+ * Copyright (C) 2001-2006 Rony G. Flatscher
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * &lt;a
+ * href=&quot;http://www.apache.org/licenses/LICENSE-2.0&quot;&gt;http://www.apache.org/licenses/LICENSE-2.0&lt;/a&gt;
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+/**
+ *
+ * This is used to support binding scripts to be run when an event occurs, forwarding the arguments supplied to the event listener. It is an adapted version of
+ * org.apache.bsf.util.BSFEventProcessor.
+ */
+public class BSFEventProcessorReturningEventInfos implements EventProcessor {
+    BSFEngine engine;
+
+    BSFManager manager;
+
+    String filter;
+
+    String source;
+
+    int lineNo;
+
+    int columnNo;
+
+    Object script;
+
+    Object dataFromScriptingEngine; // ---rgf, 2006-02-24: data coming from the
+                                    // script engine, could be
+
+    // e.g. an object reference to forward event with received arguments to
+
+    /**
+     * Package-protected constructor makes this class unavailable for public use.
+     *
+     * @param dataFromScriptingEngine this contains any object supplied by the scripting engine and gets sent back with the supplied script. This could be used
+     *                                e.g. for indicating which scripting engine object should be ultimately informed of the event occurrence.
+     */
+    BSFEventProcessorReturningEventInfos(final BSFEngine engine, final BSFManager manager, final String filter, final String source, final int lineNo,
+<span class="nc" id="L70">            final int columnNo, final Object script, final Object dataFromScriptingEngine) throws BSFException {</span>
+<span class="nc" id="L71">        this.engine = engine;</span>
+<span class="nc" id="L72">        this.manager = manager;</span>
+<span class="nc" id="L73">        this.filter = filter;</span>
+<span class="nc" id="L74">        this.source = source;</span>
+<span class="nc" id="L75">        this.lineNo = lineNo;</span>
+<span class="nc" id="L76">        this.columnNo = columnNo;</span>
+<span class="nc" id="L77">        this.script = script;</span>
+<span class="nc" id="L78">        this.dataFromScriptingEngine = dataFromScriptingEngine;</span>
+<span class="nc" id="L79">    }</span>
+
+    // ////////////////////////////////////////////////////////////////////////
+    //
+    // event is delegated to me by the adapters using this. inFilter is
+    // in general the name of the method via which the event was received
+    // at the adapter. For prop/veto change events, inFilter is the name
+    // of the property. In any case, in the event processor, I only forward
+    // those events if for which the filters match (if one is specified).
+
+    public void processEvent(final String inFilter, final Object[] evtInfo) {
+        try {
+<span class="nc" id="L91">            processExceptionableEvent(inFilter, evtInfo);</span>
+<span class="nc" id="L92">        } catch (final RuntimeException re) {</span>
+            // rethrow this .. I don't want to intercept run-time stuff
+            // that can in fact occur legit
+<span class="nc" id="L95">            throw re;</span>
+<span class="nc" id="L96">        } catch (final Exception e) {</span>
+            // should not occur
+<span class="nc" id="L98">            System.err.println(&quot;BSFError: non-exceptionable event delivery &quot; + &quot;threw exception (that's not nice): &quot; + e);</span>
+<span class="nc" id="L99">            e.printStackTrace();</span>
+<span class="nc" id="L100">        }</span>
+<span class="nc" id="L101">    }</span>
+
+    // ////////////////////////////////////////////////////////////////////////
+    //
+    // same as above, but used when the method event method may generate
+    // an exception which must go all the way back to the source (as in
+    // the vetoableChange case)
+
+    public void processExceptionableEvent(final String inFilter, final Object[] evtInfo) throws Exception {
+
+        // System.err.println(this+&quot;: inFilter=[&quot;+inFilter+&quot;],
+        // filter=[&quot;+filter+&quot;]&quot;);
+<span class="nc bnc" id="L113" title="All 4 branches missed.">        if ((filter != null) &amp;&amp; !isFilteredEvent(filter, inFilter)) {</span>
+            // ignore this event
+<span class="nc" id="L115">            return;</span>
+        }
+
+        // run the script
+        // engine.exec (source, lineNo, columnNo, script);
+
+        // create the parameter vectors for engine.apply()
+<span class="nc" id="L122">        final Vector paramNames = new Vector(), paramValues = new Vector();</span>
+
+        // parameter # 1
+        // supply the parameters as an array object as sent to the event object
+        // listener
+        // (usually the first entry is the sent event object)
+<span class="nc" id="L128">        paramNames.add(&quot;eventParameters&quot;);</span>
+<span class="nc" id="L129">        paramValues.add(evtInfo);</span>
+
+        // parameter # 2
+        // supply the data object received from the scripting engine to be sent
+        // with the event
+<span class="nc" id="L134">        paramNames.add(&quot;dataFromScriptingEngine&quot;);</span>
+<span class="nc" id="L135">        paramValues.add(this.dataFromScriptingEngine); // can be null as well</span>
+
+        // parameter # 3
+        // event filter in place
+<span class="nc" id="L139">        paramNames.add(&quot;inFilter&quot;);</span>
+<span class="nc" id="L140">        paramValues.add(inFilter); // event name that has occurred</span>
+
+        // parameter # 4
+        // event filter in place
+<span class="nc" id="L144">        paramNames.add(&quot;eventFilter&quot;);</span>
+<span class="nc" id="L145">        paramValues.add(this.filter); // can be null as well</span>
+
+        // parameter # 5
+        // BSF manager instance (e.g. allows access to its registry)
+<span class="nc" id="L149">        paramNames.add(&quot;BSFManager&quot;);</span>
+<span class="nc" id="L150">        paramValues.add(this.manager);</span>
+
+<span class="nc" id="L152">        engine.apply(source, lineNo, columnNo, this.script, paramNames, paramValues);</span>
+// System.err.println(&quot;returned from engine.exec.&quot;);
+
+<span class="nc" id="L155">    }</span>
+
+    private static boolean isFilteredEvent(final String filter, final String inFilter) {
+<span class="nc" id="L158">        boolean bRes = filter.equalsIgnoreCase(inFilter);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (bRes) {</span>
+<span class="nc" id="L160">            return bRes;</span>
+        }
+
+<span class="nc" id="L163">        final String[] chunks = filter.replace('+', ' ').split(&quot; &quot;);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        for (int i = 0; i &lt; chunks.length; i++) {</span>
+<span class="nc" id="L165">            bRes = chunks[i].equalsIgnoreCase(inFilter);</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            if (bRes) {</span>
+<span class="nc" id="L167">                return bRes;</span>
+            }
+        }
+<span class="nc" id="L170">        return bRes;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

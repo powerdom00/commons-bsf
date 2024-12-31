@@ -149,6 +149,16 @@
     <defaultGoal>clean verify apache-rat:check</defaultGoal>
     <plugins>
       <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.16.1</version>
+        <configuration>
+          <excludes>
+            <exclude>reports/</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.8.10</version>
@@ -213,6 +223,24 @@
 
   <reporting>
     <plugins>
+      <plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.16.1</version>
+        <configuration>
+          <targetClasses>
+            <!-- Package target -->
+            <param>org.apache.bsf.*</param>
+          </targetClasses>
+          <targetTests>
+            <!-- test classes-->
+            <param>org.apache.bsf.*Test</param>
+          </targetTests>
+          <outputFormats>
+            <outputFormat>HTML</outputFormat>
+          </outputFormats>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -280,5 +308,4 @@
       <version>1.2.6</version>
     </dependency>
   </dependencies>
-
 </project>

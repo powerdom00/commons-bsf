@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JavaEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.engines.java</a> &gt; <span class="el_source">JavaEngine.java</span></div><h1>JavaEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.engines.java;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FilenameFilter;
+import java.lang.reflect.Method;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.BSF_Log;
+import org.apache.bsf.BSF_LogFactory;
+
+import org.apache.bsf.util.BSFEngineImpl;
+import org.apache.bsf.util.CodeBuffer;
+import org.apache.bsf.util.EngineUtils;
+import org.apache.bsf.util.JavaUtils;
+import org.apache.bsf.util.MethodUtils;
+import org.apache.bsf.util.ObjInfo;
+
+/**
+ * This is the interface to Java from the Bean Scripting Framework.
+ * &lt;p&gt;
+ * The Java code must be written script-style -- that is, just the body of the function, without class or method headers or footers. The JavaEngine will
+ * generate those via a &quot;boilerplate&quot; wrapper:
+ * 
+ * &lt;pre&gt;
+ * &lt;code&gt;
+ * import java.lang.*;
+ * import java.util.*;
+ * public class $$CLASSNAME$$ {
+ *   static public Object BSFJavaEngineEntry(org.apache.bsf.BSFManager bsf) {
+ *     // Your code will be placed here
+ *   }
+ * }
+ * &lt;/code&gt;
+ * &lt;/pre&gt;
+ * 
+ * $$CLASSNAME$$ will be replaced by a generated classname of the form BSFJava*, and the bsf parameter can be used to retrieve application objects registered
+ * with the Bean Scripting Framework.
+ * &lt;p&gt;
+ * If you use the placeholder string $$CLASSNAME$$ elsewhere in your script -- including within text strings -- BSFJavaEngine will replace it with the generated
+ * name of the class before the Java code is compiled.
+ * &lt;p&gt;
+ * &lt;h2&gt;Hazards:&lt;/h2&gt;
+ * &lt;p&gt;
+ * NOTE that it is your responsibility to convert the code into an acceptable Java string. If you're invoking the JavaEngine directly (as in the JSPLikeInJava
+ * example) that means \&quot;quoting\&quot; characters that would otherwise cause trouble.
+ * &lt;p&gt;
+ * ALSO NOTE that it is your responsibility to return an object, or null in lieu thereof!
+ * &lt;p&gt;
+ * Since the code has to be compiled to a Java classfile, invoking it involves a fair amount of computation to load and execute the compiler. We are currently
+ * making an attempt to manage that by caching the class after it has been loaded, but the indexing is fairly primitive. It has been suggested that the Bean
+ * Scripting Framework may want to support preload-and-name-script and execute-preloaded-script-by-name options to provide better control over when and how much
+ * overhead occurs.
+ * &lt;p&gt;
+ */
+public class JavaEngine extends BSFEngineImpl {
+<span class="nc" id="L77">    Class javaclass = null;</span>
+<span class="nc" id="L78">    static Hashtable codeToClass = new Hashtable();</span>
+<span class="nc" id="L79">    static String serializeCompilation = &quot;&quot;;</span>
+<span class="nc" id="L80">    static String placeholder = &quot;$$CLASSNAME$$&quot;;</span>
+    String minorPrefix;
+
+    // private Log logger = LogFactory.getLog(this.getClass().getName());
+    private BSF_Log logger;
+
+    /**
+     * Create a scratchfile, open it for writing, return its name. Relies on the filesystem to provide us with uniqueness testing. NOTE THAT uniqueFileOffset
+     * continues to count; we don't want to risk reusing a classname we have previously loaded in this session even if the classfile has been deleted.
+     */
+<span class="nc" id="L90">    private int uniqueFileOffset = -1;</span>
+
+    private class GeneratedFile {
+<span class="nc" id="L93">        File file = null;</span>
+<span class="nc" id="L94">        FileOutputStream fos = null;</span>
+<span class="nc" id="L95">        String className = null;</span>
+
+<span class="nc" id="L97">        GeneratedFile(final File file, final FileOutputStream fos, final String className) {</span>
+<span class="nc" id="L98">            this.file = file;</span>
+<span class="nc" id="L99">            this.fos = fos;</span>
+<span class="nc" id="L100">            this.className = className;</span>
+<span class="nc" id="L101">        }</span>
+    }
+
+    /**
+     * Constructs a new instance.
+     */
+<span class="nc" id="L107">    public JavaEngine() {</span>
+        // handle logger
+<span class="nc" id="L109">        logger = BSF_LogFactory.getLog(this.getClass().getName());</span>
+        // Do compilation-possible check here??????????????
+<span class="nc" id="L111">    }</span>
+
+    public Object call(final Object object, final String method, final Object[] args) throws BSFException {
+<span class="nc" id="L114">        throw new BSFException(BSFException.REASON_UNSUPPORTED_FEATURE, &quot;call() is not currently supported by JavaEngine&quot;);</span>
+    }
+
+    public void compileScript(final String source, final int lineNo, final int columnNo, final Object script, final CodeBuffer cb) throws BSFException {
+<span class="nc" id="L118">        final ObjInfo oldRet = cb.getFinalServiceMethodStatement();</span>
+
+<span class="nc bnc" id="L120" title="All 4 branches missed.">        if (oldRet != null &amp;&amp; oldRet.isExecutable()) {</span>
+<span class="nc" id="L121">            cb.addServiceMethodStatement(oldRet.objName + &quot;;&quot;);</span>
+        }
+
+<span class="nc" id="L124">        cb.addServiceMethodStatement(script.toString());</span>
+<span class="nc" id="L125">        cb.setFinalServiceMethodStatement(null);</span>
+<span class="nc" id="L126">    }</span>
+
+    /**
+     * This is used by an application to evaluate a string containing some expression. It should store the &quot;bsf&quot; handle where the script can get to it, for
+     * callback purposes.
+     * &lt;p&gt;
+     * Note that Java compilation imposes serious overhead, but in exchange you get full Java performance once the classes have been created (minus the cache
+     * lookup cost).
+     * &lt;p&gt;
+     * Nobody knows whether javac is threadsafe. I'm going to serialize access to protect it.
+     * &lt;p&gt;
+     * There is no published API for invoking javac as a class. There's a trick that seems to work for Java 1.1.x, but it stopped working in Java 1.2. We will
+     * attempt to use it, then if necessary fall back on invoking javac via the command line.
+     */
+    public Object eval(final String source, final int lineNo, final int columnNo, final Object oscript) throws BSFException {
+<span class="nc" id="L141">        Object retval = null;</span>
+<span class="nc" id="L142">        String classname = null;</span>
+<span class="nc" id="L143">        GeneratedFile gf = null;</span>
+
+<span class="nc" id="L145">        final String basescript = oscript.toString();</span>
+<span class="nc" id="L146">        String script = basescript; // May be altered by $$CLASSNAME$$ expansion</span>
+
+        try {
+            // Do we already have a class exactly matching this code?
+<span class="nc" id="L150">            javaclass = (Class) codeToClass.get(basescript);</span>
+
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (javaclass != null) {</span>
+<span class="nc" id="L153">                classname = javaclass.getName();</span>
+            } else {
+<span class="nc" id="L155">                gf = openUniqueFile(tempDir, &quot;BSFJava&quot;, &quot;.java&quot;);</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">                if (gf == null) {</span>
+<span class="nc" id="L157">                    throw new BSFException(&quot;couldn't create JavaEngine scratchfile&quot;);</span>
+                }
+                // Obtain classname
+<span class="nc" id="L160">                classname = gf.className;</span>
+
+                // Write the kluge header to the file.
+<span class="nc" id="L163">                gf.fos.write((&quot;import java.lang.*;&quot; + &quot;import java.util.*;&quot; + &quot;public class &quot; + classname + &quot; {\n&quot;</span>
+<span class="nc" id="L164">                        + &quot;  static public Object BSFJavaEngineEntry(org.apache.bsf.BSFManager bsf) {\n&quot;).getBytes());</span>
+
+                // Edit the script to replace placeholder with the generated
+                // classname. Note that this occurs _after_ the cache was checked!
+<span class="nc" id="L168">                script = EngineUtils.replacePlaceholder(script,classname,placeholder);</span>
+
+                // MJD - debug
+//              BSFDeclaredBean tempBean;
+//              String          className;
+//
+//              for (int i = 0; i &lt; declaredBeans.size (); i++) {
+//              tempBean  = (BSFDeclaredBean) declaredBeans.elementAt (i);
+//              className = StringUtils.getClassName (tempBean.bean.getClass ());
+//
+//              gf.fos.write ((className + &quot; &quot; +
+//              tempBean.name + &quot; = (&quot; + className +
+//              &quot;)bsf.lookupBean(\&quot;&quot; +
+//              tempBean.name + &quot;\&quot;);&quot;).getBytes ());
+//              }
+                // MJD - debug
+
+                // Copy the input to the file.
+                // Assumes all available -- probably mistake, but same as other engines.
+<span class="nc" id="L187">                gf.fos.write(script.getBytes());</span>
+                // Close the method and class
+<span class="nc" id="L189">                gf.fos.write((&quot;\n  }\n}\n&quot;).getBytes());</span>
+<span class="nc" id="L190">                gf.fos.close();</span>
+
+                // Compile through Java to .class file
+                // May not be threadsafe. Serialize access on static object:
+<span class="nc" id="L194">                synchronized (serializeCompilation) {</span>
+<span class="nc" id="L195">                    JavaUtils.JDKcompile(gf.file.getPath(), classPath);</span>
+<span class="nc" id="L196">                }</span>
+
+                // Load class.
+<span class="nc" id="L199">                javaclass = EngineUtils.loadClass(mgr, classname);</span>
+
+                // Stash class for reuse
+<span class="nc" id="L202">                codeToClass.put(basescript, javaclass);</span>
+            }
+
+<span class="nc" id="L205">            final Object[] callArgs = { mgr };</span>
+<span class="nc" id="L206">            retval = internalCall(this, &quot;BSFJavaEngineEntry&quot;, callArgs);</span>
+        }
+
+<span class="nc" id="L209">        catch (final Exception e) {</span>
+<span class="nc" id="L210">            e.printStackTrace();</span>
+<span class="nc" id="L211">            throw new BSFException(BSFException.REASON_IO_ERROR, e.getMessage());</span>
+        } finally {
+            // Cleanup: delete the .java and .class files
+
+//          if(gf!=null &amp;&amp; gf.file!=null &amp;&amp; gf.file.exists())
+//          gf.file.delete();  // .java file
+
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            if (classname != null) {</span>
+                // Generated class
+<span class="nc" id="L220">                File file = new File(tempDir + File.separatorChar + classname + &quot;.class&quot;);</span>
+//              if(file.exists())
+//              file.delete();
+
+                // Search for and clean up minor classes, classname$xxx.class
+<span class="nc" id="L225">                file = new File(tempDir); // ***** Is this required?</span>
+<span class="nc" id="L226">                minorPrefix = classname + &quot;$&quot;; // Indirect arg to filter</span>
+<span class="nc" id="L227">                final String[] minorClassfiles = file.list(new FilenameFilter() {</span>
+                    // Starts with classname$ and ends with .class
+                    public boolean accept(final File dir, final String name) {
+<span class="nc bnc" id="L230" title="All 4 branches missed.">                        return (0 == name.indexOf(minorPrefix)) &amp;&amp; (name.lastIndexOf(&quot;.class&quot;) == name.length() - 6);</span>
+                    }
+                });
+<span class="nc bnc" id="L233" title="All 2 branches missed.">                for (int i = 0; i &lt; minorClassfiles.length; ++i) {</span>
+<span class="nc" id="L234">                    file = new File(minorClassfiles[i]);</span>
+//                  file.delete();
+                }
+            }
+        }
+<span class="nc" id="L239">        return retval;</span>
+    }
+
+    public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {
+<span class="nc" id="L243">        super.initialize(mgr, lang, declaredBeans);</span>
+<span class="nc" id="L244">    }</span>
+
+    /**
+     * Return an object from an extension.
+     * 
+     * @param object Object on which to make the internal_call (ignored).
+     * @param method The name of the method to internal_call.
+     * @param args   an array of arguments to be passed to the extension, which may be either Vectors of Nodes, or Strings.
+     */
+    Object internalCall(final Object object, final String method, final Object[] args) throws BSFException {
+        // ***** ISSUE: Only static methods are currently supported
+<span class="nc" id="L255">        Object retval = null;</span>
+        try {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            if (javaclass != null) {</span>
+                // ***** This should call the lookup used in BML, for typesafety
+<span class="nc" id="L259">                final Class[] argtypes = new Class[args.length];</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                for (int i = 0; i &lt; args.length; ++i) {</span>
+<span class="nc" id="L261">                    argtypes[i] = args[i].getClass();</span>
+                }
+<span class="nc" id="L263">                final Method m = MethodUtils.getMethod(javaclass, method, argtypes);</span>
+<span class="nc" id="L264">                retval = m.invoke(null, args);</span>
+            }
+<span class="nc" id="L266">        } catch (final Exception e) {</span>
+<span class="nc" id="L267">            throw new BSFException(BSFException.REASON_IO_ERROR, e.getMessage());</span>
+<span class="nc" id="L268">        }</span>
+<span class="nc" id="L269">        return retval;</span>
+    }
+
+    private GeneratedFile openUniqueFile(final String directory, final String prefix, final String suffix) {
+<span class="nc" id="L273">        File file = null;</span>
+<span class="nc" id="L274">        FileOutputStream fos = null;</span>
+<span class="nc" id="L275">        final int max = 1000; // Don't try forever</span>
+<span class="nc" id="L276">        GeneratedFile gf = null;</span>
+        int i;
+<span class="nc" id="L278">        String className = null;</span>
+<span class="nc bnc" id="L279" title="All 4 branches missed.">        for (i = max, ++uniqueFileOffset; fos == null &amp;&amp; i &gt; 0; --i, ++uniqueFileOffset) {</span>
+            // Probably a timing hazard here... ***************
+            try {
+<span class="nc" id="L282">                className = prefix + uniqueFileOffset;</span>
+<span class="nc" id="L283">                file = new File(directory + File.separatorChar + className + suffix);</span>
+<span class="nc bnc" id="L284" title="All 4 branches missed.">                if (file != null &amp;&amp; !file.exists()) {</span>
+<span class="nc" id="L285">                    fos = new FileOutputStream(file);</span>
+                }
+<span class="nc" id="L287">            } catch (final Exception e) {</span>
+                // File could not be opened for write, or Security Exception
+                // was thrown. If someone else created the file before we could
+                // open it, that's probably a threading conflict and we don't
+                // bother reporting it.
+<span class="nc bnc" id="L292" title="All 2 branches missed.">                if (!file.exists()) {</span>
+<span class="nc" id="L293">                    logger.error(&quot;openUniqueFile: unexpected &quot;, e);</span>
+                }
+<span class="nc" id="L295">            }</span>
+        }
+<span class="nc bnc" id="L297" title="All 2 branches missed.">        if (fos == null) {</span>
+<span class="nc" id="L298">            logger.error(&quot;openUniqueFile: Failed &quot; + max + &quot;attempts.&quot;);</span>
+        } else {
+<span class="nc" id="L300">            gf = new GeneratedFile(file, fos, className);</span>
+        }
+<span class="nc" id="L302">        return gf;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

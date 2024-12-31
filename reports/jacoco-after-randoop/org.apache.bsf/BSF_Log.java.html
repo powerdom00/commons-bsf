@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BSF_Log.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf</a> &gt; <span class="el_source">BSF_Log.java</span></div><h1>BSF_Log.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf;
+
+import java.lang.reflect.*;
+
+/**
+ * This class is used in BSF for logging (a delegator for &lt;em&gt;org.apache.commons.logging&lt;/em&gt;, which is needed for compilation) using the
+ * &lt;code&gt;org.apache.commons.logging.Log&lt;/code&gt; methods.
+ *
+ * Therefore this class implements all the &lt;code&gt;org.apache.commons.logging.Log&lt;/code&gt; methods. If &lt;code&gt;org.apache.commons.logging.LogFactory&lt;/code&gt; is
+ * available, then this class is used to get an &lt;code&gt;org.apache.commons.logging.Log&lt;/code&gt; instance to which to forward the message.
+ *
+ * Therefore, if Apache's common logging is available, then it is employed. If Apache's commons logging is &lt;em&gt;not&lt;/em&gt; available then a &lt;em&gt;no-op&lt;/em&gt; behavior
+ * is employed, modelled after &lt;code&gt;org.apache.commons.logging.impl.NoOpLog&lt;/code&gt;.
+ *
+ */
+
+/*
+ * ---rgf, 2007-01-29, loading and invoking all methods via reflection ---rgf, 2007-09-17, adjusted for using default class loader, if system class loader fails
+ * ---rgf, 2011-01-08, cf. [https://issues.apache.org/jira/browse/BSF-37] - context class loader may not be set, account for it (2009-09-10) - fix logic error
+ * if context class loader is not set (e.g. observed on MacOSX, 2011-01-08)
+ */
+
+//@Immutable
+public class BSF_Log // implements org.apache.commons.logging.Log
+{
+    final private static int I_DEBUG = 0; // don't show any debug-info
+    final static private Class oac_LogFactory;
+    // NOTUSED final static private Method oac_LogFactoryGetLog_Clazz;
+    final static private Method oac_LogFactoryGetLog_String;
+
+<span class="fc" id="L48">    final static private Method[] meths = new Method[18]; // store the Log methods</span>
+    // define the slots in the array
+    final private static int DEBUG1 = 0;
+    final private static int DEBUG2 = 1;
+    final private static int IS_DEBUG_ENABLED = 2;
+    final private static int ERROR1 = 3;
+    final private static int ERROR2 = 4;
+    final private static int IS_ERROR_ENABLED = 5;
+    final private static int FATAL1 = 6;
+    final private static int FATAL2 = 7;
+    final private static int IS_FATAL_ENABLED = 8;
+    final private static int INFO1 = 9;
+    final private static int INFO2 = 10;
+    final private static int IS_INFO_ENABLED = 11;
+    final private static int TRACE1 = 12;
+    final private static int TRACE2 = 13;
+    final private static int IS_TRACE_ENABLED = 14;
+    final private static int WARN1 = 15;
+    final private static int WARN2 = 16;
+    final private static int IS_WARN_ENABLED = 17;
+
+    static { // try to demand load the apache commons logging LogFactory
+
+<span class="fc" id="L71">        Class oac_LogFactory_ = null;</span>
+        // NOTUSED Method oac_LogFactoryGetLog_Clazz_ = null;
+<span class="fc" id="L73">        Method oac_LogFactoryGetLog_String_ = null;</span>
+
+        try // rgf, 20070917: o.k., if not found, try definedClassLoader instead
+        {
+<span class="fc" id="L77">            ClassLoader cl = Thread.currentThread().getContextClassLoader();</span>
+
+<span class="fc" id="L79">            final String str4Log = &quot;org.apache.commons.logging.Log&quot;;</span>
+
+<span class="fc" id="L81">            Class logClass = null;</span>
+
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (cl != null) // use current Thread's context class loader, if set</span>
+            {
+                try {
+<span class="fc" id="L86">                    logClass = cl.loadClass(str4Log);</span>
+<span class="nc" id="L87">                } catch (final ClassNotFoundException e1) // not found by contextClassLoader</span>
+                {
+<span class="fc" id="L89">                }</span>
+            }
+
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">            if (logClass == null) // not found, try defined class loader instead</span>
+            {
+<span class="nc" id="L94">                final ClassLoader defCL = BSFManager.getDefinedClassLoader();</span>
+<span class="nc" id="L95">                logClass = defCL.loadClass(str4Log);</span>
+<span class="nc" id="L96">                cl = defCL; // class found, hence we use the definedClassLoader here</span>
+            }
+
+<span class="fc" id="L99">            oac_LogFactory_ = cl.loadClass(&quot;org.apache.commons.logging.LogFactory&quot;);</span>
+
+            // get method with Class object argument
+            // NOTUSED oac_LogFactoryGetLog_Clazz_ = oac_LogFactory_.getMethod(&quot;getLog&quot;, new Class[] {Class.class});
+
+            // get method with String object argument
+<span class="fc" id="L105">            oac_LogFactoryGetLog_String_ = oac_LogFactory_.getMethod(&quot;getLog&quot;, new Class[] { String.class });</span>
+
+            // get the Log methods
+<span class="fc" id="L108">            final String str[][] = { { &quot;debug&quot;, &quot;isDebugEnabled&quot; }, { &quot;error&quot;, &quot;isErrorEnabled&quot; }, { &quot;fatal&quot;, &quot;isFatalEnabled&quot; }, { &quot;info&quot;, &quot;isInfoEnabled&quot; },</span>
+                    { &quot;trace&quot;, &quot;isTraceEnabled&quot; }, { &quot;warn&quot;, &quot;isWarnEnabled&quot; } };
+<span class="fc" id="L110">            int i = 0;</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            for (; i &lt; 6; i++) {</span>
+<span class="fc" id="L112">                final int j = i * 3;</span>
+<span class="fc" id="L113">                meths[j] = logClass.getMethod(str[i][0], new Class[] { Object.class });</span>
+
+<span class="fc" id="L115">                meths[j + 1] = logClass.getMethod(str[i][0], new Class[] { Object.class, Throwable.class });</span>
+
+<span class="fc" id="L117">                meths[j + 2] = logClass.getMethod(str[i][1], new Class[] {});</span>
+
+            }
+        }
+
+<span class="nc" id="L122">        catch (final ClassNotFoundException e)// o.k., so we do not use org.apache.commons.logging in this run</span>
+        {
+            if (I_DEBUG &gt; 1) {
+                e.printStackTrace();
+            }
+<span class="nc" id="L127">            oac_LogFactory_ = null; // make sure it does not get used</span>
+<span class="nc" id="L128">            oac_LogFactoryGetLog_String_ = null; // make sure it does not get used</span>
+<span class="nc" id="L129">        } catch (final NoSuchMethodException e)// o.k., so we do not use org.apache.commons.logging in this run</span>
+        {
+            if (I_DEBUG &gt; 1) {
+                e.printStackTrace();
+            }
+<span class="nc" id="L134">            oac_LogFactory_ = null; // make sure it does not get used</span>
+<span class="nc" id="L135">            oac_LogFactoryGetLog_String_ = null; // make sure it does not get used</span>
+<span class="pc" id="L136">        }</span>
+
+        // Set up final fields
+<span class="fc" id="L139">        oac_LogFactory = oac_LogFactory_;</span>
+        // NOTUSED oac_LogFactoryGetLog_Clazz = oac_LogFactoryGetLog_Clazz_;
+<span class="fc" id="L141">        oac_LogFactoryGetLog_String = oac_LogFactoryGetLog_String_;</span>
+<span class="fc" id="L142">    }</span>
+
+    /** Name of the BSF_Log instance. */
+    final String name;
+
+    /** Proxy object for &lt;em&gt;org.apache.commons.logging.Log&lt;/em&gt;, if available. */
+    private final Object oac_logger;
+
+    public BSF_Log() {
+<span class="fc" id="L151">        this(&quot;&lt;?&gt;&quot;);</span>
+<span class="fc" id="L152">    }</span>
+
+<span class="fc" id="L154">    public BSF_Log(final String name) {</span>
+<span class="fc" id="L155">        Object oac_logger_ = null;</span>
+<span class="fc" id="L156">        this.name = name;</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">        if (oac_LogFactory != null) {</span>
+            try // try to get an org.apache.commons.logging.Log object from the LogFactory
+            {
+<span class="fc" id="L160">                oac_logger_ = oac_LogFactoryGetLog_String.invoke(oac_LogFactory, new Object[] { name });</span>
+<span class="nc" id="L161">            } catch (final Exception e) {</span>
+<span class="nc" id="L162">                e.printStackTrace();</span>
+<span class="fc" id="L163">            }</span>
+        }
+<span class="fc" id="L165">        oac_logger = oac_logger_;</span>
+<span class="fc" id="L166">    }</span>
+
+    public BSF_Log(final Class clazz) {
+<span class="nc" id="L169">        this(clazz.getName());</span>
+<span class="nc" id="L170">    }</span>
+
+    public void debug(final Object msg) {
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L174">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).debug(msg);
+<span class="fc" id="L179">            meths[DEBUG1].invoke(oac_logger, new Object[] { msg });</span>
+
+<span class="nc" id="L181">        } catch (final Exception e) {</span>
+<span class="nc" id="L182">            e.printStackTrace();</span>
+<span class="fc" id="L183">        }</span>
+<span class="fc" id="L184">    }</span>
+
+    public void debug(final Object msg, final Throwable t) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L188">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).debug(msg, t);
+<span class="fc" id="L193">            meths[DEBUG2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L194">        } catch (final Exception e) {</span>
+<span class="nc" id="L195">            e.printStackTrace();</span>
+<span class="fc" id="L196">        }</span>
+<span class="fc" id="L197">    }</span>
+
+    public void error(final Object msg) {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L201">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).error(msg);
+<span class="fc" id="L206">            meths[ERROR1].invoke(oac_logger, new Object[] { msg });</span>
+<span class="nc" id="L207">        } catch (final Exception e) {</span>
+<span class="nc" id="L208">            e.printStackTrace();</span>
+<span class="fc" id="L209">        }</span>
+<span class="fc" id="L210">    }</span>
+
+    public void error(final Object msg, final Throwable t) {
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L214">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).error(msg, t);
+<span class="nc" id="L219">            meths[ERROR2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L220">        } catch (final Exception e) {</span>
+<span class="nc" id="L221">            e.printStackTrace();</span>
+<span class="nc" id="L222">        }</span>
+<span class="nc" id="L223">    }</span>
+
+    public void fatal(final Object msg) {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L227">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).fatal(msg);
+<span class="nc" id="L232">            meths[FATAL1].invoke(oac_logger, new Object[] { msg });</span>
+<span class="nc" id="L233">        } catch (final Exception e) {</span>
+<span class="nc" id="L234">            e.printStackTrace();</span>
+<span class="nc" id="L235">        }</span>
+<span class="nc" id="L236">    }</span>
+
+    public void fatal(final Object msg, final Throwable t) {
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L240">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).fatal(msg, t);
+<span class="fc" id="L244">            meths[FATAL2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L245">        } catch (final Exception e) {</span>
+<span class="nc" id="L246">            e.printStackTrace();</span>
+<span class="fc" id="L247">        }</span>
+<span class="fc" id="L248">    }</span>
+
+    public void info(final Object msg) {
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L252">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).info(msg);
+<span class="nc" id="L257">            meths[INFO1].invoke(oac_logger, new Object[] { msg });</span>
+<span class="nc" id="L258">        } catch (final Exception e) {</span>
+<span class="nc" id="L259">            e.printStackTrace();</span>
+<span class="nc" id="L260">        }</span>
+<span class="nc" id="L261">    }</span>
+
+    public void info(final Object msg, final Throwable t) {
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L265">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).info(msg, t);
+<span class="nc" id="L270">            meths[INFO2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L271">        } catch (final Exception e) {</span>
+<span class="nc" id="L272">            e.printStackTrace();</span>
+<span class="nc" id="L273">        }</span>
+<span class="nc" id="L274">    }</span>
+
+    public void trace(final Object msg) {
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L278">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).trace(msg);
+<span class="nc" id="L283">            meths[TRACE1].invoke(oac_logger, new Object[] { msg });</span>
+<span class="nc" id="L284">        } catch (final Exception e) {</span>
+<span class="nc" id="L285">            e.printStackTrace();</span>
+<span class="nc" id="L286">        }</span>
+<span class="nc" id="L287">    }</span>
+
+    public void trace(final Object msg, final Throwable t) {
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L291">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).trace(msg, t);
+<span class="fc" id="L296">            meths[TRACE2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L297">        } catch (final Exception e) {</span>
+<span class="nc" id="L298">            e.printStackTrace();</span>
+<span class="fc" id="L299">        }</span>
+<span class="fc" id="L300">    }</span>
+
+    public void warn(final Object msg) {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L304">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).warn(msg);
+<span class="nc" id="L309">            meths[WARN1].invoke(oac_logger, new Object[] { msg });</span>
+<span class="nc" id="L310">        } catch (final Exception e) {</span>
+<span class="nc" id="L311">            e.printStackTrace();</span>
+<span class="nc" id="L312">        }</span>
+<span class="nc" id="L313">    }</span>
+
+    public void warn(final Object msg, final Throwable t) {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L317">            return; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // ((org.apache.commons.logging.Log) oac_logger).warn(msg, t);
+<span class="nc" id="L322">            meths[WARN2].invoke(oac_logger, new Object[] { msg, t });</span>
+<span class="nc" id="L323">        } catch (final Exception e) {</span>
+<span class="nc" id="L324">            e.printStackTrace();</span>
+<span class="nc" id="L325">        }</span>
+<span class="nc" id="L326">    }</span>
+
+    public boolean isDebugEnabled() throws BSFException {
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L330">            return false;</span>
+        } // no org.apache.commons.logging.Log object ?
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isDebugEnabled();
+<span class="fc" id="L335">            return ((Boolean) meths[IS_DEBUG_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L336">        } catch (final Exception e) {</span>
+<span class="nc" id="L337">            throw new BSFException(&quot;IS_DEBUG_EXCEPTION&quot;);</span>
+        }
+    }
+
+    public boolean isErrorEnabled() throws BSFException {
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L343">            return false; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isErrorEnabled();
+<span class="nc" id="L348">            return ((Boolean) meths[IS_ERROR_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L349">        } catch (final Exception e) {</span>
+<span class="nc" id="L350">            throw new BSFException(&quot;IS_ERROR_EXCEPTION&quot;);</span>
+        }
+    }
+
+    public boolean isFatalEnabled() throws BSFException {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L356">            return false; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isFatalEnabled();
+<span class="nc" id="L361">            return ((Boolean) meths[IS_FATAL_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L362">        } catch (final Exception e) {</span>
+<span class="nc" id="L363">            throw new BSFException(&quot;IS_FATAL_EXCEPTION&quot;);</span>
+        }
+    }
+
+    public boolean isInfoEnabled() throws BSFException {
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L369">            return false; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isInfoEnabled();
+<span class="nc" id="L374">            return ((Boolean) meths[IS_INFO_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L375">        } catch (final Exception e) {</span>
+<span class="nc" id="L376">            throw new BSFException(&quot;IS_INFO_EXCEPTION&quot;);</span>
+        }
+    }
+
+    public boolean isTraceEnabled() throws BSFException {
+<span class="nc bnc" id="L381" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L382">            return false; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isTraceEnabled();
+<span class="nc" id="L387">            return ((Boolean) meths[IS_TRACE_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L388">        } catch (final Exception e) {</span>
+<span class="nc" id="L389">            throw new BSFException(&quot;IS_TRACE_EXCEPTION&quot;);</span>
+        }
+    }
+
+    public boolean isWarnEnabled() throws BSFException {
+<span class="nc bnc" id="L394" title="All 2 branches missed.">        if (oac_logger == null) {</span>
+<span class="nc" id="L395">            return false; // no org.apache.commons.logging.Log object ?</span>
+        }
+
+        try {
+            // return ((org.apache.commons.logging.Log) oac_logger).isWarnEnabled();
+<span class="nc" id="L400">            return ((Boolean) meths[IS_WARN_ENABLED].invoke(oac_logger, new Object[] {})).booleanValue();</span>
+<span class="nc" id="L401">        } catch (final Exception e) {</span>
+            //throw new BSFException(&quot;IS_WARN_EXCEPTION&quot;);
+<span class="nc" id="L403">            return false;</span>
+        }
+    }
+    public static final String DASHES = &quot;--------------------------------------------------------&quot;;
+    // for development purposes only (to debug this class on its own)
+    public static void main(final String args[]) {
+        try {
+<span class="nc" id="L410">            System.out.println(&quot;in BSF_Log ...&quot;);</span>
+<span class="nc" id="L411">            System.out.println(DASHES);</span>
+<span class="nc" id="L412">            System.out.println(DASHES);</span>
+<span class="nc" id="L413">            BSF_Log bl = new BSF_Log();</span>
+<span class="nc" id="L414">            dump(bl);</span>
+<span class="nc" id="L415">            bl = new BSF_Log(Class.class);</span>
+<span class="nc" id="L416">            dump(bl);</span>
+<span class="nc" id="L417">            bl = new BSF_Log(&quot;Rony was here...&quot;);</span>
+<span class="nc" id="L418">            dump(bl);</span>
+        }
+<span class="nc" id="L420">        catch(BSFException e){</span>
+<span class="nc" id="L421">            System.err.println(e.getMessage());</span>
+<span class="nc" id="L422">        }</span>
+
+<span class="nc" id="L424">    }</span>
+
+    static void dump(final BSF_Log bl) throws BSFException {
+<span class="nc" id="L427">        System.out.println(&quot;\n\tbl=[&quot; + bl + &quot;] ---&gt;&gt;&gt;   ---&gt;&gt;&gt;   ---&gt;&gt;&gt;&quot;);</span>
+<span class="nc" id="L428">        System.err.print(&quot;/debug **/&quot;);</span>
+<span class="nc" id="L429">        bl.debug(&quot;debug message. &quot;);</span>
+<span class="nc" id="L430">        System.err.println(&quot;\\** debug.\\&quot;);</span>
+<span class="nc" id="L431">        System.err.print(&quot;/error **/&quot;);</span>
+<span class="nc" id="L432">        bl.error(&quot;error message. &quot;);</span>
+<span class="nc" id="L433">        System.err.println(&quot;\\** error.\\&quot;);</span>
+<span class="nc" id="L434">        System.err.print(&quot;/fatal **/&quot;);</span>
+<span class="nc" id="L435">        bl.fatal(&quot;fatal message. &quot;);</span>
+<span class="nc" id="L436">        System.err.println(&quot;\\** fatal.\\&quot;);</span>
+<span class="nc" id="L437">        System.err.print(&quot;/info  **/&quot;);</span>
+<span class="nc" id="L438">        bl.info(&quot;info  message. &quot;);</span>
+<span class="nc" id="L439">        System.err.println(&quot;\\** info .\\&quot;);</span>
+<span class="nc" id="L440">        System.err.print(&quot;/trace **/&quot;);</span>
+<span class="nc" id="L441">        bl.trace(&quot;trace message. &quot;);</span>
+<span class="nc" id="L442">        System.err.println(&quot;\\** trace.\\&quot;);</span>
+<span class="nc" id="L443">        System.err.print(&quot;/warn  **/&quot;);</span>
+<span class="nc" id="L444">        bl.warn(&quot;warn  message. &quot;);</span>
+<span class="nc" id="L445">        System.err.println(&quot;\\** warn .\\&quot;);</span>
+<span class="nc" id="L446">        System.err.println();</span>
+
+<span class="nc" id="L448">        final Throwable t = new Throwable(&quot;Test from Rony for: &quot; + bl);</span>
+<span class="nc" id="L449">        System.err.print(&quot;/debug **/&quot;);</span>
+<span class="nc" id="L450">        bl.debug(&quot;debug message. &quot;, t);</span>
+<span class="nc" id="L451">        System.err.println(&quot;\\** debug.\\&quot;);</span>
+<span class="nc" id="L452">        System.err.print(&quot;/error **/&quot;);</span>
+<span class="nc" id="L453">        bl.error(&quot;error message. &quot;, t);</span>
+<span class="nc" id="L454">        System.err.println(&quot;\\** error.\\&quot;);</span>
+<span class="nc" id="L455">        System.err.print(&quot;/fatal **/&quot;);</span>
+<span class="nc" id="L456">        bl.fatal(&quot;fatal message. &quot;, t);</span>
+<span class="nc" id="L457">        System.err.println(&quot;\\** fatal.\\&quot;);</span>
+<span class="nc" id="L458">        System.err.print(&quot;/info  **/&quot;);</span>
+<span class="nc" id="L459">        bl.info(&quot;info  message. &quot;, t);</span>
+<span class="nc" id="L460">        System.err.println(&quot;\\** info .\\&quot;);</span>
+<span class="nc" id="L461">        System.err.print(&quot;/trace **/&quot;);</span>
+<span class="nc" id="L462">        bl.trace(&quot;trace message. &quot;, t);</span>
+<span class="nc" id="L463">        System.err.println(&quot;\\** trace.\\&quot;);</span>
+<span class="nc" id="L464">        System.err.print(&quot;/warn  **/&quot;);</span>
+<span class="nc" id="L465">        bl.warn(&quot;warn  message. &quot;, t);</span>
+<span class="nc" id="L466">        System.err.println(&quot;\\** warn .\\&quot;);</span>
+<span class="nc" id="L467">        System.err.println();</span>
+<span class="nc" id="L468">        System.out.println(&quot;\tisDebugEnabled: &quot; + bl.isDebugEnabled());</span>
+<span class="nc" id="L469">        System.out.println(&quot;\tisErrorEnabled: &quot; + bl.isErrorEnabled());</span>
+<span class="nc" id="L470">        System.out.println(&quot;\tisFatalEnabled: &quot; + bl.isFatalEnabled());</span>
+<span class="nc" id="L471">        System.out.println(&quot;\tisInfo Enabled: &quot; + bl.isInfoEnabled());</span>
+<span class="nc" id="L472">        System.out.println(&quot;\tisTraceEnabled: &quot; + bl.isTraceEnabled());</span>
+<span class="nc" id="L473">        System.out.println(&quot;\tisWarn Enabled: &quot; + bl.isWarnEnabled());</span>
+<span class="nc" id="L474">        System.out.println(&quot;\tbl=[&quot; + bl + &quot;] &lt;&lt;&lt;---   &lt;&lt;&lt;---   &lt;&lt;&lt;---&quot;);</span>
+<span class="nc" id="L475">        System.out.println(DASHES);</span>
+<span class="nc" id="L476">    }</span>
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

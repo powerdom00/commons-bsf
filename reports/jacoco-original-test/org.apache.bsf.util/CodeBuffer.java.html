@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CodeBuffer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">CodeBuffer.java</span></div><h1>CodeBuffer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util;
+
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.Hashtable;
+import java.util.Stack;
+import java.util.Vector;
+
+import org.apache.bsf.util.cf.CodeFormatter;
+
+/**
+ * A &lt;code&gt;CodeBuffer&lt;/code&gt; object is used as a code repository for generated Java code. It provides buffers which correspond to the various sections of a Java
+ * class.
+ */
+public class CodeBuffer {
+<span class="nc" id="L34">    private final StringWriter fieldDeclSW = new StringWriter(), methodDeclSW = new StringWriter(), initializerSW = new StringWriter(),</span>
+            constructorSW = new StringWriter(), serviceMethodSW = new StringWriter();
+
+<span class="nc" id="L37">    private final PrintWriter fieldDeclPW = new PrintWriter(fieldDeclSW), methodDeclPW = new PrintWriter(methodDeclSW),</span>
+            initializerPW = new PrintWriter(initializerSW), constructorPW = new PrintWriter(constructorSW), serviceMethodPW = new PrintWriter(serviceMethodSW);
+
+<span class="nc" id="L40">    private Stack symbolTableStack = new Stack();</span>
+<span class="nc" id="L41">    private Hashtable symbolTable = new Hashtable(), usedSymbolIndices = new Hashtable();</span>
+
+    private ObjInfo finalStatementInfo;
+    private CodeBuffer parent;
+
+    {
+<span class="nc" id="L47">        symbolTableStack.push(symbolTable);</span>
+    }
+
+    // New stuff...
+<span class="nc" id="L51">    private final Vector imports = new Vector(), constructorArguments = new Vector(), constructorExceptions = new Vector(),</span>
+            serviceMethodExceptions = new Vector(), implementsVector = new Vector();
+<span class="nc" id="L53">    private String packageName = null, className = &quot;Test&quot;, serviceMethodName = &quot;exec&quot;, extendsName = null;</span>
+<span class="nc" id="L54">    private Class serviceMethodReturnType = void.class;</span>
+
+<span class="nc" id="L56">    public CodeBuffer() {</span>
+<span class="nc" id="L57">    }</span>
+
+<span class="nc" id="L59">    public CodeBuffer(final CodeBuffer parent) {</span>
+<span class="nc" id="L60">        this.parent = parent;</span>
+<span class="nc" id="L61">    }</span>
+
+    public void addConstructorArgument(final ObjInfo arg) {
+<span class="nc" id="L64">        constructorArguments.addElement(arg);</span>
+<span class="nc" id="L65">    }</span>
+
+    public void addConstructorException(final String exceptionName) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (!constructorExceptions.contains(exceptionName)) {</span>
+<span class="nc" id="L69">            constructorExceptions.addElement(exceptionName);</span>
+        }
+<span class="nc" id="L71">    }</span>
+
+    public void addConstructorStatement(final String statement) {
+<span class="nc" id="L74">        constructorPW.println(statement);</span>
+<span class="nc" id="L75">    }</span>
+
+    public void addFieldDeclaration(final String statement) {
+<span class="nc" id="L78">        fieldDeclPW.println(statement);</span>
+<span class="nc" id="L79">    }</span>
+
+    public void addImplements(final String importName) {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (!implementsVector.contains(importName)) {</span>
+<span class="nc" id="L83">            implementsVector.addElement(importName);</span>
+        }
+<span class="nc" id="L85">    }</span>
+
+    public void addImport(final String importName) {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (!imports.contains(importName)) {</span>
+<span class="nc" id="L89">            imports.addElement(importName);</span>
+        }
+<span class="nc" id="L91">    }</span>
+
+    public void addInitializerStatement(final String statement) {
+<span class="nc" id="L94">        initializerPW.println(statement);</span>
+<span class="nc" id="L95">    }</span>
+
+    public void addMethodDeclaration(final String statement) {
+<span class="nc" id="L98">        methodDeclPW.println(statement);</span>
+<span class="nc" id="L99">    }</span>
+
+    public void addServiceMethodException(final String exceptionName) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (!serviceMethodExceptions.contains(exceptionName)) {</span>
+<span class="nc" id="L103">            serviceMethodExceptions.addElement(exceptionName);</span>
+        }
+<span class="nc" id="L105">    }</span>
+
+    public void addServiceMethodStatement(final String statement) {
+<span class="nc" id="L108">        serviceMethodPW.println(statement);</span>
+<span class="nc" id="L109">    }</span>
+
+    // Used internally by merge(...).
+    private void appendIfNecessary(final PrintWriter pw, final StringBuffer buf) {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (buf.length() &gt; 0) {</span>
+<span class="nc" id="L114">            pw.print(buf.toString());</span>
+        }
+<span class="nc" id="L116">    }</span>
+
+    public String buildNewSymbol(final String prefix) {
+<span class="nc" id="L119">        Integer nextNum = getSymbolIndex(prefix);</span>
+
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (nextNum == null) {</span>
+<span class="nc" id="L122">            nextNum = new Integer(0);</span>
+        }
+
+<span class="nc" id="L125">        int iNextNum = nextNum.intValue();</span>
+<span class="nc" id="L126">        String symbol = prefix + &quot;_&quot; + iNextNum;</span>
+
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        while (getSymbol(symbol) != null) {</span>
+<span class="nc" id="L129">            iNextNum++;</span>
+<span class="nc" id="L130">            symbol = prefix + &quot;_&quot; + iNextNum;</span>
+        }
+
+<span class="nc" id="L133">        putSymbolIndex(prefix, new Integer(iNextNum + 1));</span>
+
+<span class="nc" id="L135">        return symbol;</span>
+    }
+
+    public void clearSymbolTable() {
+<span class="nc" id="L139">        symbolTable = new Hashtable();</span>
+<span class="nc" id="L140">        symbolTableStack = new Stack();</span>
+<span class="nc" id="L141">        symbolTableStack.push(symbolTable);</span>
+
+<span class="nc" id="L143">        usedSymbolIndices = new Hashtable();</span>
+<span class="nc" id="L144">    }</span>
+
+    public String getClassName() {
+<span class="nc" id="L147">        return className;</span>
+    }
+
+    public Vector getConstructorArguments() {
+<span class="nc" id="L151">        return constructorArguments;</span>
+    }
+
+    public StringBuffer getConstructorBuffer() {
+<span class="nc" id="L155">        constructorPW.flush();</span>
+
+<span class="nc" id="L157">        return constructorSW.getBuffer();</span>
+    }
+
+    public Vector getConstructorExceptions() {
+<span class="nc" id="L161">        return constructorExceptions;</span>
+    }
+
+    public String getExtends() {
+<span class="nc" id="L165">        return extendsName;</span>
+    }
+
+    public StringBuffer getFieldBuffer() {
+<span class="nc" id="L169">        fieldDeclPW.flush();</span>
+
+<span class="nc" id="L171">        return fieldDeclSW.getBuffer();</span>
+    }
+
+    public ObjInfo getFinalServiceMethodStatement() {
+<span class="nc" id="L175">        return finalStatementInfo;</span>
+    }
+
+    public Vector getImplements() {
+<span class="nc" id="L179">        return implementsVector;</span>
+    }
+
+    public Vector getImports() {
+<span class="nc" id="L183">        return imports;</span>
+    }
+
+    public StringBuffer getInitializerBuffer() {
+<span class="nc" id="L187">        initializerPW.flush();</span>
+
+<span class="nc" id="L189">        return initializerSW.getBuffer();</span>
+    }
+
+    public StringBuffer getMethodBuffer() {
+<span class="nc" id="L193">        methodDeclPW.flush();</span>
+
+<span class="nc" id="L195">        return methodDeclSW.getBuffer();</span>
+    }
+
+    public String getPackageName() {
+<span class="nc" id="L199">        return packageName;</span>
+    }
+
+    public StringBuffer getServiceMethodBuffer() {
+<span class="nc" id="L203">        serviceMethodPW.flush();</span>
+
+<span class="nc" id="L205">        return serviceMethodSW.getBuffer();</span>
+    }
+
+    public Vector getServiceMethodExceptions() {
+<span class="nc" id="L209">        return serviceMethodExceptions;</span>
+    }
+
+    public String getServiceMethodName() {
+<span class="nc" id="L213">        return serviceMethodName;</span>
+    }
+
+    public Class getServiceMethodReturnType() {
+<span class="nc bnc" id="L217" title="All 2 branches missed.">        if (finalStatementInfo != null) {</span>
+<span class="nc" id="L218">            return finalStatementInfo.objClass;</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        } else if (serviceMethodReturnType != null) {</span>
+<span class="nc" id="L220">            return serviceMethodReturnType;</span>
+        } else {
+<span class="nc" id="L222">            return void.class;</span>
+        }
+    }
+
+    public ObjInfo getSymbol(final String symbol) {
+<span class="nc" id="L227">        ObjInfo ret = (ObjInfo) symbolTable.get(symbol);</span>
+
+<span class="nc bnc" id="L229" title="All 4 branches missed.">        if (ret == null &amp;&amp; parent != null) {</span>
+<span class="nc" id="L230">            ret = parent.getSymbol(symbol);</span>
+        }
+
+<span class="nc" id="L233">        return ret;</span>
+    }
+
+    Integer getSymbolIndex(final String prefix) {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (parent != null) {</span>
+<span class="nc" id="L238">            return parent.getSymbolIndex(prefix);</span>
+        } else {
+<span class="nc" id="L240">            return (Integer) usedSymbolIndices.get(prefix);</span>
+        }
+    }
+
+    public Hashtable getSymbolTable() {
+<span class="nc" id="L245">        return symbolTable;</span>
+    }
+
+    public void merge(final CodeBuffer otherCB) {
+<span class="nc" id="L249">        final Vector otherImports = otherCB.getImports();</span>
+
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        for (int i = 0; i &lt; otherImports.size(); i++) {</span>
+<span class="nc" id="L252">            addImport((String) otherImports.elementAt(i));</span>
+        }
+
+<span class="nc" id="L255">        appendIfNecessary(fieldDeclPW, otherCB.getFieldBuffer());</span>
+<span class="nc" id="L256">        appendIfNecessary(methodDeclPW, otherCB.getMethodBuffer());</span>
+<span class="nc" id="L257">        appendIfNecessary(initializerPW, otherCB.getInitializerBuffer());</span>
+<span class="nc" id="L258">        appendIfNecessary(constructorPW, otherCB.getConstructorBuffer());</span>
+<span class="nc" id="L259">        appendIfNecessary(serviceMethodPW, otherCB.getServiceMethodBuffer());</span>
+
+<span class="nc" id="L261">        final ObjInfo oldRet = getFinalServiceMethodStatement();</span>
+
+<span class="nc bnc" id="L263" title="All 4 branches missed.">        if (oldRet != null &amp;&amp; oldRet.isExecutable()) {</span>
+<span class="nc" id="L264">            addServiceMethodStatement(oldRet.objName + &quot;;&quot;);</span>
+        }
+
+<span class="nc" id="L267">        setFinalServiceMethodStatement(otherCB.getFinalServiceMethodStatement());</span>
+<span class="nc" id="L268">    }</span>
+
+    public void popSymbolTable() {
+<span class="nc" id="L271">        symbolTableStack.pop();</span>
+<span class="nc" id="L272">        symbolTable = (Hashtable) symbolTableStack.peek();</span>
+<span class="nc" id="L273">    }</span>
+
+    public void print(final PrintWriter out, final boolean formatOutput) {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if (formatOutput) {</span>
+<span class="nc" id="L277">            new CodeFormatter().formatCode(new StringReader(toString()), out);</span>
+        } else {
+<span class="nc" id="L279">            out.print(toString());</span>
+        }
+
+<span class="nc" id="L282">        out.flush();</span>
+<span class="nc" id="L283">    }</span>
+
+    public void pushSymbolTable() {
+<span class="nc" id="L286">        symbolTable = (Hashtable) symbolTableStack.push(new ScriptSymbolTable(symbolTable));</span>
+<span class="nc" id="L287">    }</span>
+
+    public void putSymbol(final String symbol, final ObjInfo obj) {
+<span class="nc" id="L290">        symbolTable.put(symbol, obj);</span>
+<span class="nc" id="L291">    }</span>
+
+    void putSymbolIndex(final String prefix, final Integer index) {
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        if (parent != null) {</span>
+<span class="nc" id="L295">            parent.putSymbolIndex(prefix, index);</span>
+        } else {
+<span class="nc" id="L297">            usedSymbolIndices.put(prefix, index);</span>
+        }
+<span class="nc" id="L299">    }</span>
+
+    public void setClassName(final String className) {
+<span class="nc" id="L302">        this.className = className;</span>
+<span class="nc" id="L303">    }</span>
+
+    public void setExtends(final String extendsName) {
+<span class="nc" id="L306">        this.extendsName = extendsName;</span>
+<span class="nc" id="L307">    }</span>
+
+    public void setFinalServiceMethodStatement(final ObjInfo finalStatementInfo) {
+<span class="nc" id="L310">        this.finalStatementInfo = finalStatementInfo;</span>
+<span class="nc" id="L311">    }</span>
+
+    public void setPackageName(final String packageName) {
+<span class="nc" id="L314">        this.packageName = packageName;</span>
+<span class="nc" id="L315">    }</span>
+
+    public void setServiceMethodName(final String serviceMethodName) {
+<span class="nc" id="L318">        this.serviceMethodName = serviceMethodName;</span>
+<span class="nc" id="L319">    }</span>
+
+    public void setServiceMethodReturnType(final Class serviceMethodReturnType) {
+<span class="nc" id="L322">        this.serviceMethodReturnType = serviceMethodReturnType;</span>
+<span class="nc" id="L323">    }</span>
+
+    public void setSymbolTable(final Hashtable symbolTable) {
+<span class="nc" id="L326">        this.symbolTable = symbolTable;</span>
+<span class="nc" id="L327">    }</span>
+
+    public boolean symbolTableIsStacked() {
+<span class="nc" id="L330">        return (symbolTable instanceof ScriptSymbolTable);</span>
+    }
+
+    public String toString() {
+<span class="nc" id="L334">        final StringWriter sw = new StringWriter();</span>
+<span class="nc" id="L335">        final PrintWriter pw = new PrintWriter(sw);</span>
+<span class="nc" id="L336">        final ObjInfo ret = finalStatementInfo;</span>
+
+<span class="nc bnc" id="L338" title="All 4 branches missed.">        if (packageName != null &amp;&amp; !packageName.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L339">            pw.println(&quot;package &quot; + packageName + &quot;;&quot;);</span>
+<span class="nc" id="L340">            pw.println();</span>
+        }
+
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (imports.size() &gt; 0) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">            for (int i = 0; i &lt; imports.size(); i++) {</span>
+<span class="nc" id="L345">                pw.println(&quot;import &quot; + imports.elementAt(i) + &quot;;&quot;);</span>
+            }
+
+<span class="nc" id="L348">            pw.println();</span>
+        }
+
+<span class="nc bnc" id="L351" title="All 4 branches missed.">        pw.println(&quot;public class &quot; + className + (extendsName != null &amp;&amp; !extendsName.equals(&quot;&quot;) ? &quot; extends &quot; + extendsName : &quot;&quot;)</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">                + (implementsVector.size() &gt; 0 ? &quot; implements &quot; + StringUtils.getCommaListFromVector(implementsVector) : &quot;&quot;));</span>
+<span class="nc" id="L353">        pw.println(&quot;{&quot;);</span>
+
+<span class="nc" id="L355">        pw.print(getFieldBuffer().toString());</span>
+
+<span class="nc" id="L357">        StringBuffer buf = getInitializerBuffer();</span>
+
+<span class="nc bnc" id="L359" title="All 2 branches missed.">        if (buf.length() &gt; 0) {</span>
+<span class="nc" id="L360">            pw.println();</span>
+<span class="nc" id="L361">            pw.println(&quot;{&quot;);</span>
+<span class="nc" id="L362">            pw.print(buf.toString());</span>
+<span class="nc" id="L363">            pw.println(&quot;}&quot;);</span>
+        }
+
+<span class="nc" id="L366">        buf = getConstructorBuffer();</span>
+
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        if (buf.length() &gt; 0) {</span>
+<span class="nc" id="L369">            pw.println();</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">            pw.println(&quot;public &quot; + className + &quot;(&quot; + (constructorArguments.size() &gt; 0 ? StringUtils.getCommaListFromVector(constructorArguments) : &quot;&quot;) + &quot;)&quot;</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">                    + (constructorExceptions.size() &gt; 0 ? &quot; throws &quot; + StringUtils.getCommaListFromVector(constructorExceptions) : &quot;&quot;));</span>
+<span class="nc" id="L372">            pw.println(&quot;{&quot;);</span>
+<span class="nc" id="L373">            pw.print(buf.toString());</span>
+<span class="nc" id="L374">            pw.println(&quot;}&quot;);</span>
+        }
+
+<span class="nc" id="L377">        buf = getServiceMethodBuffer();</span>
+
+<span class="nc bnc" id="L379" title="All 4 branches missed.">        if (buf.length() &gt; 0 || ret != null) {</span>
+<span class="nc" id="L380">            pw.println();</span>
+<span class="nc" id="L381">            pw.println(&quot;public &quot; + StringUtils.getClassName(getServiceMethodReturnType()) + &quot; &quot; + serviceMethodName + &quot;()&quot;</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">                    + (serviceMethodExceptions.size() &gt; 0 ? &quot; throws &quot; + StringUtils.getCommaListFromVector(serviceMethodExceptions) : &quot;&quot;));</span>
+<span class="nc" id="L383">            pw.println(&quot;{&quot;);</span>
+
+<span class="nc" id="L385">            pw.print(buf.toString());</span>
+
+<span class="nc bnc" id="L387" title="All 2 branches missed.">            if (ret != null) {</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">                if (ret.isValueReturning()) {</span>
+<span class="nc" id="L389">                    pw.println();</span>
+<span class="nc" id="L390">                    pw.println(&quot;return &quot; + ret.objName + &quot;;&quot;);</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">                } else if (ret.isExecutable()) {</span>
+<span class="nc" id="L392">                    pw.println(ret.objName + &quot;;&quot;);</span>
+                }
+            }
+
+<span class="nc" id="L396">            pw.println(&quot;}&quot;);</span>
+        }
+
+<span class="nc" id="L399">        pw.print(getMethodBuffer().toString());</span>
+
+<span class="nc" id="L401">        pw.println(&quot;}&quot;);</span>
+
+<span class="nc" id="L403">        pw.flush();</span>
+
+<span class="nc" id="L405">        return sw.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

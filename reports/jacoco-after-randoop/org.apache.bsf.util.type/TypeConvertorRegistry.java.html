@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeConvertorRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util.type</a> &gt; <span class="el_source">TypeConvertorRegistry.java</span></div><h1>TypeConvertorRegistry.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util.type;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.util.Hashtable;
+
+/**
+ * The &lt;em&gt;TypeConvertorRegistry&lt;/em&gt; is the registry of type convertors. It has lookup and register capabilities based on the types to be converted as well as
+ * by some object key.
+ *
+ * @see TypeConvertorRegistry
+ */
+public class TypeConvertorRegistry {
+<span class="fc" id="L31">    Hashtable reg = new Hashtable();</span>
+<span class="fc" id="L32">    Hashtable keyedReg = new Hashtable();</span>
+
+    // register some standard convertors at construction time
+<span class="fc" id="L35">    public TypeConvertorRegistry() {</span>
+        // no-op convertors: cvt from primitive wrappers to the object wrapper
+<span class="fc" id="L37">        TypeConvertor tc = new TypeConvertor() {</span>
+            public Object convert(final Class from, final Class to, final Object obj) {
+<span class="nc" id="L39">                return obj;</span>
+            }
+
+            public String getCodeGenString() {
+<span class="nc" id="L43">                return &quot;(Class from, Class to, Object obj) {\n&quot; + &quot;return obj;\n&quot; + &quot;}&quot;;</span>
+            }
+        };
+<span class="fc" id="L46">        register(Boolean.class, boolean.class, tc);</span>
+<span class="fc" id="L47">        register(boolean.class, Boolean.class, tc);</span>
+<span class="fc" id="L48">        register(Byte.class, byte.class, tc);</span>
+<span class="fc" id="L49">        register(byte.class, Byte.class, tc);</span>
+<span class="fc" id="L50">        register(Character.class, char.class, tc);</span>
+<span class="fc" id="L51">        register(char.class, Character.class, tc);</span>
+<span class="fc" id="L52">        register(Short.class, short.class, tc);</span>
+<span class="fc" id="L53">        register(short.class, Short.class, tc);</span>
+<span class="fc" id="L54">        register(Integer.class, int.class, tc);</span>
+<span class="fc" id="L55">        register(int.class, Integer.class, tc);</span>
+<span class="fc" id="L56">        register(Long.class, long.class, tc);</span>
+<span class="fc" id="L57">        register(long.class, Long.class, tc);</span>
+<span class="fc" id="L58">        register(Float.class, float.class, tc);</span>
+<span class="fc" id="L59">        register(float.class, Float.class, tc);</span>
+<span class="fc" id="L60">        register(Double.class, double.class, tc);</span>
+<span class="fc" id="L61">        register(double.class, Double.class, tc);</span>
+
+        // object to string: the registry special cases this one as the backup
+        // if the target is string and there is no special convertor available
+        // otherwise
+<span class="fc" id="L66">        tc = new TypeConvertor() {</span>
+            public Object convert(final Class from, final Class to, final Object obj) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">                return (obj == null) ? &quot;(null)&quot; : obj.toString();</span>
+            }
+
+            public String getCodeGenString() {
+<span class="nc" id="L72">                return &quot;(Class from, Class to, Object obj) {\n&quot; + &quot;return (obj == null) ? \&quot;(null)\&quot; : obj.toString ();\n&quot; + &quot;}&quot;;</span>
+            }
+        };
+<span class="fc" id="L75">        register(Object.class, String.class, tc);</span>
+
+        // convert strings to various primitives (both their object versions
+        // and wrappers for primitive versions)
+<span class="fc" id="L79">        tc = new TypeConvertor() {</span>
+            public Object convert(final Class from, final Class to, final Object obj) {
+<span class="nc" id="L81">                final String str = (String) obj;</span>
+<span class="nc bnc" id="L82" title="All 4 branches missed.">                if (to == Boolean.class || to == boolean.class) {</span>
+<span class="nc" id="L83">                    return Boolean.valueOf(str);</span>
+<span class="nc bnc" id="L84" title="All 4 branches missed.">                } else if (to == Byte.class || to == byte.class) {</span>
+<span class="nc" id="L85">                    return Byte.valueOf(str);</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">                } else if (to == Character.class || to == char.class) {</span>
+<span class="nc" id="L87">                    return Character.valueOf(str.charAt(0));</span>
+<span class="nc bnc" id="L88" title="All 4 branches missed.">                } else if (to == Short.class || to == short.class) {</span>
+<span class="nc" id="L89">                    return Short.valueOf(str);</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">                } else if (to == Integer.class || to == int.class) {</span>
+<span class="nc" id="L91">                    return Integer.valueOf(str);</span>
+<span class="nc bnc" id="L92" title="All 4 branches missed.">                } else if (to == Long.class || to == long.class) {</span>
+<span class="nc" id="L93">                    return Long.valueOf(str);</span>
+<span class="nc bnc" id="L94" title="All 4 branches missed.">                } else if (to == Float.class || to == float.class) {</span>
+<span class="nc" id="L95">                    return Float.valueOf(str);</span>
+<span class="nc bnc" id="L96" title="All 4 branches missed.">                } else if (to == Double.class || to == double.class) {</span>
+<span class="nc" id="L97">                    return Double.valueOf(str);</span>
+                } else {
+<span class="nc" id="L99">                    return null;</span>
+                }
+            }
+
+            public String getCodeGenString() {
+<span class="nc" id="L104">                return &quot;(Class from, Class to, Object obj) {\n&quot; + &quot;String str = (String) obj;\n&quot; + &quot;if (to == Boolean.class || to == boolean.class) {\n&quot;</span>
+                        + &quot;return Boolean.valueOf (str);\n&quot; + &quot;} else if (to == Byte.class || to == byte.class) {\n&quot; + &quot;return Byte.valueOf (str);\n&quot;
+                        + &quot;} else if (to == Character.class || to == char.class) {\n&quot; + &quot;return Character.valueOf (str.charAt (0));\n&quot;
+                        + &quot;} else if (to == Short.class || to == short.class) {\n&quot; + &quot;return Short.valueOf (str);\n&quot;
+                        + &quot;} else if (to == Integer.class || to == int.class) {\n&quot; + &quot;return Integer.valueOf (str);\n&quot;
+                        + &quot;} else if (to == Long.class || to == long.class) {\n&quot; + &quot;return Long.valueOf (str);\n&quot;
+                        + &quot;} else if (to == Float.class || to == float.class) {\n&quot; + &quot;return Float.valueOf (str);\n&quot;
+                        + &quot;} else if (to == Double.class || to == double.class) {\n&quot; + &quot;return Double.valueOf (str);\n&quot; + &quot;} else {\n&quot; + &quot;return null;\n&quot;
+                        + &quot;}\n&quot; + &quot;}&quot;;
+            }
+        };
+<span class="fc" id="L115">        register(String.class, boolean.class, tc);</span>
+<span class="fc" id="L116">        register(String.class, Boolean.class, tc);</span>
+<span class="fc" id="L117">        register(String.class, byte.class, tc);</span>
+<span class="fc" id="L118">        register(String.class, Byte.class, tc);</span>
+<span class="fc" id="L119">        register(String.class, char.class, tc);</span>
+<span class="fc" id="L120">        register(String.class, Character.class, tc);</span>
+<span class="fc" id="L121">        register(String.class, short.class, tc);</span>
+<span class="fc" id="L122">        register(String.class, Short.class, tc);</span>
+<span class="fc" id="L123">        register(String.class, int.class, tc);</span>
+<span class="fc" id="L124">        register(String.class, Integer.class, tc);</span>
+<span class="fc" id="L125">        register(String.class, long.class, tc);</span>
+<span class="fc" id="L126">        register(String.class, Long.class, tc);</span>
+<span class="fc" id="L127">        register(String.class, float.class, tc);</span>
+<span class="fc" id="L128">        register(String.class, Float.class, tc);</span>
+<span class="fc" id="L129">        register(String.class, double.class, tc);</span>
+<span class="fc" id="L130">        register(String.class, Double.class, tc);</span>
+
+        // strings to fonts
+<span class="fc" id="L133">        tc = new TypeConvertor() {</span>
+            public Object convert(final Class from, final Class to, final Object obj) {
+<span class="nc" id="L135">                return Font.decode((String) obj);</span>
+            }
+
+            public String getCodeGenString() {
+<span class="nc" id="L139">                return &quot;(Class from, Class to, Object obj) {\n&quot; + &quot;return Font.decode ((String) obj);\n&quot; + &quot;}&quot;;</span>
+            }
+        };
+<span class="fc" id="L142">        register(String.class, Font.class, tc);</span>
+
+        // strings to colors
+<span class="fc" id="L145">        tc = new TypeConvertor() {</span>
+            public Object convert(final Class from, final Class to, final Object obj) {
+<span class="nc" id="L147">                return Color.decode((String) obj);</span>
+            }
+
+            public String getCodeGenString() {
+<span class="nc" id="L151">                return &quot;(Class from, Class to, Object obj) {\n&quot; + &quot;return Color.decode ((String) obj);\n&quot; + &quot;}&quot;;</span>
+            }
+        };
+<span class="fc" id="L154">        register(String.class, Color.class, tc);</span>
+<span class="fc" id="L155">    }</span>
+
+    // lookup a convertor
+    public TypeConvertor lookup(final Class from, final Class to) {
+<span class="fc" id="L159">        final String key = from.getName() + &quot; -&gt; &quot; + to.getName();</span>
+<span class="fc" id="L160">        final TypeConvertor tc = (TypeConvertor) reg.get(key);</span>
+<span class="pc bpc" id="L161" title="4 of 8 branches missed.">        if ((tc == null) &amp;&amp; (from != void.class &amp;&amp; from != Void.class &amp;&amp; to == String.class)) {</span>
+            // find the object -&gt; string convertor
+<span class="nc" id="L163">            return lookup(Object.class, String.class);</span>
+        }
+<span class="fc" id="L165">        return tc;</span>
+    }
+
+    // lookup a convertor by key
+    public TypeConvertor lookupByKey(final Object key) {
+<span class="nc" id="L170">        return (TypeConvertor) keyedReg.get(key);</span>
+    }
+
+    // register a convertor
+    public void register(final Class from, final Class to, final TypeConvertor convertor) {
+<span class="fc" id="L175">        final String key = from.getName() + &quot; -&gt; &quot; + to.getName();</span>
+<span class="fc" id="L176">        reg.put(key, convertor);</span>
+<span class="fc" id="L177">    }</span>
+
+    // register a convertor by key
+    public void registerByKey(final Object key, final TypeConvertor convertor) {
+<span class="nc" id="L181">        keyedReg.put(key, convertor);</span>
+<span class="nc" id="L182">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

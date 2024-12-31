@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.util</a> &gt; <span class="el_source">StringUtils.java</span></div><h1>StringUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.util;
+
+import java.beans.Introspector;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+/**
+ * Deals with strings (probably need to elaborate some more).
+ */
+<span class="fc" id="L37">public class StringUtils {</span>
+<span class="fc" id="L38">    public static final String LINE_SEPARATOR = System.getProperty(&quot;line.separator&quot;, &quot;\n&quot;);</span>
+<span class="fc" id="L39">    public static final String LINE_SEPARATOR_STR = cleanString(LINE_SEPARATOR);</span>
+
+    public static String classNameToVarName(String className) {
+        // Might represent an array.
+<span class="fc" id="L43">        int arrayDim = 0;</span>
+
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        while (className.endsWith(&quot;[]&quot;)) {</span>
+<span class="fc" id="L46">            className = className.substring(0, className.length() - 2);</span>
+<span class="fc" id="L47">            arrayDim++;</span>
+        }
+
+<span class="fc" id="L50">        final int iLastPeriod = className.lastIndexOf('.');</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        String varName = Introspector.decapitalize(iLastPeriod != -1 ? className.substring(iLastPeriod + 1) : className);</span>
+
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (arrayDim &gt; 0) {</span>
+<span class="fc" id="L54">            varName += &quot;_&quot; + arrayDim + &quot;D&quot;;</span>
+        }
+
+<span class="fc" id="L57">        return getValidIdentifierName(varName);</span>
+    }
+
+    // Ensure that escape sequences are passed through properly.
+    public static String cleanString(final String str) {
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L63">            return null;</span>
+        } else {
+<span class="fc" id="L65">            final char[] charArray = str.toCharArray();</span>
+<span class="fc" id="L66">            final StringBuilder sBuf = new StringBuilder();</span>
+
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            for (int i = 0; i &lt; charArray.length; i++) {</span>
+<span class="fc bfc" id="L69" title="All 5 branches covered.">                switch (charArray[i]) {</span>
+                case '\&quot;':
+<span class="fc" id="L71">                    sBuf.append(&quot;\\\&quot;&quot;);</span>
+<span class="fc" id="L72">                    break;</span>
+                case '\\':
+<span class="fc" id="L74">                    sBuf.append(&quot;\\\\&quot;);</span>
+<span class="fc" id="L75">                    break;</span>
+                case '\n':
+<span class="fc" id="L77">                    sBuf.append(&quot;\\n&quot;);</span>
+<span class="fc" id="L78">                    break;</span>
+                case '\r':
+<span class="fc" id="L80">                    sBuf.append(&quot;\\r&quot;);</span>
+<span class="fc" id="L81">                    break;</span>
+                default:
+<span class="fc" id="L83">                    sBuf.append(charArray[i]);</span>
+                    break;
+                }
+            }
+
+<span class="fc" id="L88">            return sBuf.toString();</span>
+        }
+    }
+
+    /**
+     * Get a string consisting of &lt;code&gt;numberOfChars&lt;/code&gt; theChars.
+     *
+     * @return a string consisting of &lt;code&gt;numberOfChars&lt;/code&gt; theChars.
+     */
+    public static String getChars(final int numberOfChars, final char theChar) {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (numberOfChars &lt;= 0) {</span>
+<span class="fc" id="L99">            return &quot;&quot;;</span>
+        }
+
+<span class="fc" id="L102">        final StringBuilder sRet = new StringBuilder(numberOfChars);</span>
+
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (int i = 0; i &lt; numberOfChars; i++) {</span>
+<span class="fc" id="L105">            sRet.append(theChar);</span>
+        }
+
+<span class="fc" id="L108">        return sRet.toString();</span>
+    }
+
+    /*
+     * This method will return the correct name for a class object representing a primitive, a single instance of a class, as well as n-dimensional arrays of
+     * primitives or instances. This logic is needed to handle the string returned from Class.getName(). If the class object represents a single instance (or a
+     * primitive), Class.getName() returns the fully-qualified name of the class and no further work is needed. However, if the class object represents an array
+     * (of n dimensions), Class.getName() returns a Descriptor (the Descriptor grammar is defined in section 4.3 of the Java VM Spec). This method will parse
+     * the Descriptor if necessary.
+     */
+    public static String getClassName(final Class targetClass) {
+<span class="fc" id="L119">        final String className = targetClass.getName();</span>
+
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        return targetClass.isArray() ? parseDescriptor(className) : className;</span>
+    }
+
+    public static String getCommaListFromVector(final Vector sourceVector) {
+<span class="fc" id="L125">        final StringBuilder strBuf = new StringBuilder();</span>
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        for (int i = 0; i &lt; sourceVector.size(); i++) {</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">            strBuf.append((i &gt; 0 ? &quot;, &quot; : &quot;&quot;) + sourceVector.elementAt(i));</span>
+        }
+
+<span class="fc" id="L131">        return strBuf.toString();</span>
+    }
+
+    /*
+     * Returns a Reader for reading from the specified resource, if the resource points to a stream.
+     */
+    public static final String FILE_NOT_FOUND = &quot;This file was not found: &quot;;
+    public static Reader getContentAsReader(final URL url) throws SecurityException, IllegalArgumentException, IOException {
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (url == null) {</span>
+<span class="fc" id="L140">            throw new IllegalArgumentException(&quot;URL cannot be null.&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L144">            final Object content = url.getContent();</span>
+
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">            if (content == null) {</span>
+<span class="nc" id="L147">                throw new IllegalArgumentException(&quot;No content.&quot;);</span>
+            }
+
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">            if (content instanceof InputStream) {</span>
+<span class="fc" id="L151">                final Reader in = new InputStreamReader((InputStream) content);</span>
+
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">                if (in.ready()) {</span>
+<span class="fc" id="L154">                    return in;</span>
+                } else {
+<span class="nc" id="L156">                    throw new FileNotFoundException();</span>
+                }
+            } else {
+<span class="nc" id="L159">                throw new IllegalArgumentException(</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                        (content instanceof String) ? (String) content : &quot;This URL points to a: &quot; + StringUtils.getClassName(content.getClass()));</span>
+            }
+<span class="nc" id="L162">        } catch (final SecurityException e) {</span>
+<span class="nc" id="L163">            throw new SecurityException(&quot;Your JVM's SecurityManager has disallowed this.&quot;);</span>
+<span class="nc" id="L164">        } catch (final FileNotFoundException e) {</span>
+<span class="nc" id="L165">            throw new FileNotFoundException(FILE_NOT_FOUND + url);</span>
+        }
+    }
+
+    /*
+     * Shorthand for: IOUtils.getStringFromReader(getContentAsReader(url)).
+     */
+    public static String getContentAsString(final URL url) throws SecurityException, IllegalArgumentException, IOException {
+<span class="fc" id="L173">        return IOUtils.getStringFromReader(getContentAsReader(url));</span>
+    }
+
+    // Handles multi-line strings.
+    public static String getSafeString(final String scriptStr) {
+<span class="fc" id="L178">        final BufferedReader in = new BufferedReader(new StringReader(scriptStr));</span>
+<span class="fc" id="L179">        final StringBuilder strBuf = new StringBuilder();</span>
+<span class="fc" id="L180">        String tempLine, previousLine = null;</span>
+
+        try {
+<span class="fc bfc" id="L183" title="All 2 branches covered.">            while ((tempLine = in.readLine()) != null) {</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">                if (previousLine != null) {</span>
+<span class="nc" id="L185">                    strBuf.append(&quot;\&quot;&quot; + previousLine + LINE_SEPARATOR_STR + &quot;\&quot; +&quot; + LINE_SEPARATOR);</span>
+                }
+
+<span class="fc" id="L188">                previousLine = cleanString(tempLine);</span>
+            }
+<span class="nc" id="L190">        } catch (final IOException e) {</span>
+<span class="fc" id="L191">        }</span>
+
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        strBuf.append(&quot;\&quot;&quot; + (previousLine != null ? previousLine : &quot;&quot;) + &quot;\&quot;&quot; + LINE_SEPARATOR);</span>
+
+<span class="fc" id="L195">        return strBuf.toString();</span>
+    }
+
+    /*
+    */
+    public static URL getURL(final URL contextURL, final String spec) throws MalformedURLException {
+<span class="nc" id="L201">        return getURL(contextURL, spec, 1);</span>
+    }
+
+    /*
+     * The recursiveDepth argument is used to insure that the algorithm gives up after hunting 2 levels up in the contextURL's path.
+     */
+    private static URL getURL(final URL contextURL, final String spec, final int recursiveDepth) throws MalformedURLException {
+<span class="nc" id="L208">        URL url = null;</span>
+
+        try {
+<span class="nc" id="L211">            url = new URL(contextURL, spec);</span>
+
+            try {
+<span class="nc" id="L214">                url.openStream();</span>
+<span class="nc" id="L215">            } catch (final IOException ioe1) {</span>
+<span class="nc" id="L216">                throw new MalformedURLException(FILE_NOT_FOUND + url);</span>
+<span class="nc" id="L217">            }</span>
+<span class="nc" id="L218">        } catch (final MalformedURLException e1) {</span>
+<span class="nc" id="L219">            url = new URL(&quot;file&quot;, &quot;&quot;, spec);</span>
+
+            try {
+<span class="nc" id="L222">                url.openStream();</span>
+<span class="nc" id="L223">            } catch (final IOException ioe2) {</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">                if (contextURL != null) {</span>
+<span class="nc" id="L225">                    final String contextFileName = contextURL.getFile();</span>
+<span class="nc" id="L226">                    final String parentName = new File(contextFileName).getParent();</span>
+
+<span class="nc bnc" id="L228" title="All 4 branches missed.">                    if (parentName != null &amp;&amp; recursiveDepth &lt; 3) {</span>
+<span class="nc" id="L229">                        return getURL(new URL(&quot;file&quot;, &quot;&quot;, parentName + '/'), spec, recursiveDepth + 1);</span>
+                    }
+                }
+
+<span class="nc" id="L233">                throw new MalformedURLException(FILE_NOT_FOUND + url);</span>
+<span class="nc" id="L234">            }</span>
+<span class="nc" id="L235">        }</span>
+
+<span class="nc" id="L237">        return url;</span>
+    }
+
+    public static String getValidIdentifierName(final String identifierName) {
+<span class="fc bfc" id="L241" title="All 4 branches covered.">        if (identifierName == null || identifierName.length() == 0) {</span>
+<span class="fc" id="L242">            return null;</span>
+        }
+
+<span class="fc" id="L245">        final StringBuilder strBuf = new StringBuilder();</span>
+
+<span class="fc" id="L247">        final char[] chars = identifierName.toCharArray();</span>
+
+<span class="fc bfc" id="L249" title="All 2 branches covered.">        strBuf.append(Character.isJavaIdentifierStart(chars[0]) ? chars[0] : '_');</span>
+
+<span class="fc bfc" id="L251" title="All 2 branches covered.">        for (int i = 1; i &lt; chars.length; i++) {</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">            strBuf.append(Character.isJavaIdentifierPart(chars[i]) ? chars[i] : '_');</span>
+        }
+
+<span class="fc" id="L255">        return strBuf.toString();</span>
+    }
+
+    public static boolean isValidIdentifierName(final String identifierName) {
+<span class="pc bpc" id="L259" title="2 of 4 branches missed.">        if (identifierName == null || identifierName.length() == 0) {</span>
+<span class="nc" id="L260">            return false;</span>
+        }
+
+<span class="fc" id="L263">        final char[] chars = identifierName.toCharArray();</span>
+
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        if (!Character.isJavaIdentifierStart(chars[0])) {</span>
+<span class="fc" id="L266">            return false;</span>
+        }
+
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (int i = 1; i &lt; chars.length; i++) {</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">            if (!Character.isJavaIdentifierPart(chars[i])) {</span>
+<span class="fc" id="L271">                return false;</span>
+            }
+        }
+
+<span class="fc" id="L275">        return true;</span>
+    }
+
+    public static boolean isValidPackageName(final String packageName) {
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        if (packageName == null) {</span>
+<span class="fc" id="L280">            return false;</span>
+<span class="fc bfc" id="L281" title="All 2 branches covered.">        } else if (packageName.length() == 0) {</span>
+            // Empty is ok.
+<span class="fc" id="L283">            return true;</span>
+        }
+
+<span class="fc" id="L286">        final StringTokenizer strTok = new StringTokenizer(packageName, &quot;.&quot;, true);</span>
+
+        // Should have an odd number of tokens (including '.' delimiters).
+<span class="fc bfc" id="L289" title="All 2 branches covered.">        if (strTok.countTokens() % 2 != 1) {</span>
+<span class="fc" id="L290">            return false;</span>
+        }
+
+        // Must start with a valid identifier name.
+<span class="fc bfc" id="L294" title="All 2 branches covered.">        if (!isValidIdentifierName(strTok.nextToken())) {</span>
+<span class="fc" id="L295">            return false;</span>
+        }
+
+        // ... followed by 0 or more of &quot;.ValidIdentifier&quot;.
+<span class="fc bfc" id="L299" title="All 2 branches covered.">        while (strTok.hasMoreTokens()) {</span>
+            // Must be a '.'.
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">            if (!strTok.nextToken().equals(&quot;.&quot;)) {</span>
+<span class="nc" id="L302">                return false;</span>
+            }
+
+            // Must be a valid identifier name.
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">            if (strTok.hasMoreTokens()) {</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">                if (!isValidIdentifierName(strTok.nextToken())) {</span>
+<span class="fc" id="L308">                    return false;</span>
+                }
+            } else {
+<span class="nc" id="L311">                return false;</span>
+            }
+        }
+
+<span class="fc" id="L315">        return true;</span>
+    }
+
+    /*
+     * See the comment above for getClassName(targetClass)...
+     */
+    private static String parseDescriptor(final String className) {
+<span class="fc" id="L322">        final char[] classNameChars = className.toCharArray();</span>
+<span class="fc" id="L323">        int arrayDim = 0;</span>
+<span class="fc" id="L324">        int i = 0;</span>
+
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        while (classNameChars[i] == '[') {</span>
+<span class="fc" id="L327">            arrayDim++;</span>
+<span class="fc" id="L328">            i++;</span>
+        }
+
+<span class="fc" id="L331">        final StringBuilder classNameBuf = new StringBuilder();</span>
+
+<span class="pc bpc" id="L333" title="9 of 10 branches missed.">        switch (classNameChars[i++]) {</span>
+        case 'B':
+<span class="nc" id="L335">            classNameBuf.append(&quot;byte&quot;);</span>
+<span class="nc" id="L336">            break;</span>
+        case 'C':
+<span class="nc" id="L338">            classNameBuf.append(&quot;char&quot;);</span>
+<span class="nc" id="L339">            break;</span>
+        case 'D':
+<span class="nc" id="L341">            classNameBuf.append(&quot;double&quot;);</span>
+<span class="nc" id="L342">            break;</span>
+        case 'F':
+<span class="nc" id="L344">            classNameBuf.append(&quot;float&quot;);</span>
+<span class="nc" id="L345">            break;</span>
+        case 'I':
+<span class="nc" id="L347">            classNameBuf.append(&quot;int&quot;);</span>
+<span class="nc" id="L348">            break;</span>
+        case 'J':
+<span class="nc" id="L350">            classNameBuf.append(&quot;long&quot;);</span>
+<span class="nc" id="L351">            break;</span>
+        case 'S':
+<span class="nc" id="L353">            classNameBuf.append(&quot;short&quot;);</span>
+<span class="nc" id="L354">            break;</span>
+        case 'Z':
+<span class="nc" id="L356">            classNameBuf.append(&quot;boolean&quot;);</span>
+<span class="nc" id="L357">            break;</span>
+        case 'L':
+<span class="fc" id="L359">            classNameBuf.append(classNameChars, i, classNameChars.length - i - 1);</span>
+<span class="fc" id="L360">            break;</span>
+            default:
+<span class="nc" id="L362">                throw new IllegalArgumentException(&quot;Unexpected character: &quot; + classNameChars[i - 1]);</span>
+        }
+
+<span class="fc bfc" id="L365" title="All 2 branches covered.">        for (i = 0; i &lt; arrayDim; i++) {</span>
+<span class="fc" id="L366">            classNameBuf.append(&quot;[]&quot;);</span>
+        }
+
+<span class="fc" id="L369">        return classNameBuf.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

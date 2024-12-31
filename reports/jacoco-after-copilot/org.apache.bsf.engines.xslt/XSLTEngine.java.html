@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XSLTEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BSF (Bean Scripting Framework)</a> &gt; <a href="index.source.html" class="el_package">org.apache.bsf.engines.xslt</a> &gt; <span class="el_source">XSLTEngine.java</span></div><h1>XSLTEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.bsf.engines.xslt;
+
+import java.io.File;
+import java.io.Reader;
+import java.io.StringReader;
+
+import java.util.Vector;
+
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMResult;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamSource;
+
+import org.apache.bsf.BSFDeclaredBean;
+import org.apache.bsf.BSFException;
+import org.apache.bsf.BSFManager;
+import org.apache.bsf.BSF_Log;
+import org.apache.bsf.BSF_LogFactory;
+import org.apache.bsf.util.BSFEngineImpl;
+import org.apache.bsf.util.BSFFunctions;
+import org.apache.xpath.objects.XObject;
+import org.w3c.dom.Node;
+
+/**
+ * Xerces XSLT interface to BSF. Requires Xalan and Xerces from Apache.
+ *
+ * This integration uses the BSF registry to pass in any src document and stylesheet base URI that the user may wish to set.
+ *
+ * Re-implemented for the Xalan 2 codebase
+ */
+public class XSLTEngine extends BSFEngineImpl {
+    TransformerFactory tFactory;
+    Transformer transformer;
+
+    // Log logger = LogFactory.getLog(this.getClass().getName());
+<span class="nc" id="L54">    BSF_Log logger = null;</span>
+
+<span class="nc" id="L56">    public XSLTEngine() {</span>
+        // handle logger
+<span class="nc" id="L58">        logger = BSF_LogFactory.getLog(this.getClass().getName());</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * call the named method of the given object.
+     */
+    public Object call(final Object object, final String method, final Object[] args) throws BSFException {
+<span class="nc" id="L65">        throw new BSFException(BSFException.REASON_UNSUPPORTED_FEATURE, &quot;BSF:XSLTEngine can't call methods&quot;);</span>
+    }
+
+    /**
+     * Declare a bean by setting it as a parameter
+     */
+    public void declareBean(final BSFDeclaredBean bean) throws BSFException {
+<span class="nc" id="L72">        transformer.setParameter(bean.name, new XObject(bean.bean));</span>
+<span class="nc" id="L73">    }</span>
+
+    /**
+     * Evaluate an expression. In this case, an expression is assumed to be a stylesheet of the template style (see the XSLT spec).
+     */
+    public Object eval(final String source, final int lineNo, final int columnNo, final Object oscript) throws BSFException {
+        // get the style base URI (the place from where Xerces XSLT will
+        // look for imported/included files and referenced docs): if a
+        // bean named &quot;xslt:styleBaseURI&quot; is registered, then cvt it
+        // to a string and use that. Otherwise use &quot;.&quot;, which means the
+        // base is the directory where the process is running from
+<span class="nc" id="L84">        final Object sbObj = mgr.lookupBean(&quot;xslt:styleBaseURI&quot;);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        final String styleBaseURI = (sbObj == null) ? &quot;.&quot; : sbObj.toString();</span>
+
+        // Locate the stylesheet.
+        StreamSource styleSource;
+
+<span class="nc" id="L90">        styleSource = new StreamSource(new StringReader(oscript.toString()));</span>
+<span class="nc" id="L91">        styleSource.setSystemId(styleBaseURI);</span>
+
+        try {
+<span class="nc" id="L94">            transformer = tFactory.newTransformer(styleSource);</span>
+<span class="nc" id="L95">        } catch (final Exception e) {</span>
+<span class="nc" id="L96">            logger.error(&quot;Exception from Xerces XSLT:&quot;, e);</span>
+<span class="nc" id="L97">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;Exception from Xerces XSLT: &quot; + e, e);</span>
+<span class="nc" id="L98">        }</span>
+
+        // get the src to work on: if a bean named &quot;xslt:src&quot; is registered
+        // and its a Node, then use it as the source. If its not a Node, then
+        // if its a URL parse it, if not treat it as a file and make a URL and
+        // parse it and go. If no xslt:src is found, use an empty document
+        // (stylesheet is treated as a literal result element stylesheet)
+<span class="nc" id="L105">        final Object srcObj = mgr.lookupBean(&quot;xslt:src&quot;);</span>
+<span class="nc" id="L106">        Object xis = null;</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (srcObj != null) {</span>
+<span class="nc" id="L108">            xis=srcTypeCheck(srcObj);</span>
+        } else {
+            // create an empty document - real src must come into the
+            // stylesheet using &quot;doc(...)&quot; [see XSLT spec] or the stylesheet
+            // must be of literal result element type
+<span class="nc" id="L113">            xis = new StreamSource();</span>
+        }
+
+        // set all declared beans as parameters.
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        for (int i = 0; i &lt; declaredBeans.size(); i++) {</span>
+<span class="nc" id="L118">            final BSFDeclaredBean b = (BSFDeclaredBean) declaredBeans.elementAt(i);</span>
+<span class="nc" id="L119">            transformer.setParameter(b.name, new XObject(b.bean));</span>
+        }
+
+        // declare a &quot;bsf&quot; parameter which is the BSF handle so that
+        // the script can do BSF stuff if it wants to
+<span class="nc" id="L124">        transformer.setParameter(&quot;bsf&quot;, new XObject(new BSFFunctions(mgr, this)));</span>
+
+        // do it
+        try {
+<span class="nc" id="L128">            final DOMResult result = new DOMResult();</span>
+<span class="nc" id="L129">            transformer.transform((StreamSource) xis, result);</span>
+<span class="nc" id="L130">            return new XSLTResultNode(result.getNode());</span>
+<span class="nc" id="L131">        } catch (final Exception e) {</span>
+<span class="nc" id="L132">            throw new BSFException(BSFException.REASON_EXECUTION_ERROR, &quot;exception while eval'ing XSLT script&quot; + e, e);</span>
+        }
+    }
+    public Object srcTypeCheck(Object srcObj){
+<span class="nc" id="L136">        Object xis=null;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (srcObj instanceof Node) {</span>
+<span class="nc" id="L138">                xis = new DOMSource((Node) srcObj);</span>
+            } else {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                    if (srcObj instanceof Reader) {</span>
+<span class="nc" id="L141">                        xis = new StreamSource((Reader) srcObj);</span>
+
+<span class="nc bnc" id="L143" title="All 2 branches missed.">                    } else if (srcObj instanceof File) {</span>
+<span class="nc" id="L144">                        xis = new StreamSource((File) srcObj);</span>
+
+                    } else {
+<span class="nc" id="L147">                        final String srcObjstr = srcObj.toString();</span>
+<span class="nc" id="L148">                        xis = new StreamSource(new StringReader(srcObjstr));</span>
+                    }
+            }
+<span class="nc" id="L151">        return xis;</span>
+        }
+    /**
+     * Initialize the engine.
+     */
+    public void initialize(final BSFManager mgr, final String lang, final Vector declaredBeans) throws BSFException {
+<span class="nc" id="L157">        super.initialize(mgr, lang, declaredBeans);</span>
+
+<span class="nc" id="L159">        tFactory = TransformerFactory.newInstance();</span>
+<span class="nc" id="L160">    }</span>
+
+    /**
+     * Undeclare a bean by setting he parameter represeting it to null
+     */
+    public void undeclareBean(final BSFDeclaredBean bean) throws BSFException {
+        // Cannot clear only one parameter in Xalan 2, so we set it to null
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if ((transformer.getParameter(bean.name)) != null) {</span>
+<span class="nc" id="L168">            transformer.setParameter(bean.name, null);</span>
+        }
+<span class="nc" id="L170">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>
