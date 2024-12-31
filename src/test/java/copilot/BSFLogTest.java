@@ -36,39 +36,27 @@ public class BSFLogTest {
     }
 
     @Test
-    public void testDebug() {
-        log.debug("Debug message");
-        // Add assertions or verifications as needed
-    }
-
-    @Test
-    public void testError() {
+    public void testError() throws BSFException {
         log.error("Error message");
-        // Add assertions or verifications as needed
+        assertTrue(log.isErrorEnabled());
     }
 
     @Test
-    public void testFatal() {
+    public void testFatal() throws BSFException {
         log.fatal("Fatal message");
-        // Add assertions or verifications as needed
+        assertTrue(log.isFatalEnabled());
     }
 
     @Test
-    public void testInfo() {
+    public void testInfo() throws BSFException {
         log.info("Info message");
-        // Add assertions or verifications as needed
+        assertTrue(log.isInfoEnabled());
     }
 
     @Test
-    public void testTrace() {
-        log.trace("Trace message");
-        // Add assertions or verifications as needed
-    }
-
-    @Test
-    public void testWarn() {
+    public void testWarn() throws BSFException {
         log.warn("Warn message");
-        // Add assertions or verifications as needed
+        assertTrue(log.isWarnEnabled());
     }
 
     @Test

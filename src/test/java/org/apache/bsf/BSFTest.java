@@ -19,7 +19,6 @@ package org.apache.bsf;
 
 import org.apache.bsf.engines.JavascriptTest;
 import org.apache.bsf.engines.JythonTest;
-import org.apache.bsf.engines.NetrexxTest_IGNORE;
 import org.apache.bsf.util.EngineUtilsTest;
 import org.apache.bsf.util.IOUtilsTest;
 import org.apache.bsf.util.StringUtilsTest;
@@ -65,8 +64,6 @@ public class BSFTest extends BSFEngineTestCase {
         testNames[1] = "Rhino Engine Tests";
         suite.addTestSuite(JythonTest.class);
         testNames[2] = "Jython Engine Tests";
-        suite.addTestSuite(NetrexxTest_IGNORE.class);
-        testNames[3] = "NetRexx Engine Tests";
         suite.addTestSuite(StringUtilsTest.class);
         testNames[4] = "StringUtils Test";
         suite.addTestSuite(IOUtilsTest.class);
