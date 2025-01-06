@@ -83,12 +83,6 @@ public class TypeConvertorRegistryBenchmarkTest {
     }
 
     @Benchmark
-    public void testConvertStringToWrapperBig() {
-        TypeConvertor convertor = registry.lookup(String.class, Integer.class);
-        convertor.convert(String.class, Integer.class, "4298769876979986");
-    }
-
-    @Benchmark
     public void testLookupStringToFont() {
         registry.lookup(String.class, Font.class);
     }
