@@ -18,7 +18,7 @@
   * under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
 
@@ -39,7 +39,7 @@
 
   <properties>
     <!-- does not yet support moditect -->
-    <moditect.skip>true</moditect.skip> 
+    <moditect.skip>true</moditect.skip>
     <project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.build.outputTimestamp>2024-01-29T13:15:17Z</project.build.outputTimestamp>
@@ -111,24 +111,24 @@
     <mailingList>
       <name>BSF User List</name>
       <subscribe>
-                user-subscribe@commons.apache.org
-            </subscribe>
+        user-subscribe@commons.apache.org
+      </subscribe>
       <unsubscribe>
-                user-unsubscribe@commons.apache.org
-            </unsubscribe>
+        user-unsubscribe@commons.apache.org
+      </unsubscribe>
       <archive>
-                https://mail-archives.apache.org/mod_mbox/commons-user/
-            </archive>
+        https://mail-archives.apache.org/mod_mbox/commons-user/
+      </archive>
     </mailingList>
     <mailingList>
       <name>BSF Developer List</name>
       <subscribe>dev-subscribe@commons.apache.org</subscribe>
       <unsubscribe>
-                dev-unsubscribe@commons.apache.org
-            </unsubscribe>
+        dev-unsubscribe@commons.apache.org
+      </unsubscribe>
       <archive>
-                https://mail-archives.apache.org/mod_mbox/commons-dev/
-            </archive>
+        https://mail-archives.apache.org/mod_mbox/commons-dev/
+      </archive>
     </mailingList>
   </mailingLists>
 
@@ -188,6 +188,15 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
+          <source>17</source>
+          <target>17</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.openjdk.jmh</groupId>
+              <artifactId>jmh-generator-annprocess</artifactId>
+              <version>1.37</version>
+            </path>
+          </annotationProcessorPaths>
           <!-- engine dependencies have not yet been sorted -->
           <excludes>
             <exclude>org/apache/bsf/engines/netrexx/**</exclude>
@@ -253,8 +262,8 @@
           </reportSet>
         </reportSets>
       </plugin>
-      <!-- <plugin> <groupId>org.codehaus.mojo</groupId> <artifactId>jardiff-maven-plugin</artifactId> <configuration> <artifacts> 
-        <artifact> <version>5.2</version> </artifact> <artifact> <groupId>bcel</groupId> <version>5.1</version> </artifact> </artifacts> 
+      <!-- <plugin> <groupId>org.codehaus.mojo</groupId> <artifactId>jardiff-maven-plugin</artifactId> <configuration> <artifacts>
+        <artifact> <version>5.2</version> </artifact> <artifact> <groupId>bcel</groupId> <version>5.1</version> </artifact> </artifacts>
         </configuration> </plugin> -->
 
     </plugins>
@@ -306,6 +315,17 @@
       <groupId>jacl</groupId>
       <artifactId>tcljava</artifactId>
       <version>1.2.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>1.37</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>1.37</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 </project>
