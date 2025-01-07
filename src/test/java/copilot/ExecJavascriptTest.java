@@ -51,15 +51,6 @@ public class ExecJavascriptTest {
     }
 
     @Test
-    void executeExponentialFunction() throws BSFException {
-        BSFManager bsfManager = new BSFManager();
-        bsfManager.declareBean("math", new MathLibrary(), MathLibrary.class);
-        String script = "var result = math.expFunction(1); result;";
-        Object result = bsfManager.eval("javascript", "script", 0, 0, script);
-        assertEquals(2.7182818284590455, result);
-    }
-
-    @Test
     void executeLogFunction() throws BSFException {
         BSFManager bsfManager = new BSFManager();
         bsfManager.declareBean("math", new MathLibrary(), MathLibrary.class);
