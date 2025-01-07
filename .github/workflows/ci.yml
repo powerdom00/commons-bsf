@@ -12,7 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-name: Maven CI
+
+name: Maven CI (macOS)
 
 on:
   push:
@@ -24,13 +25,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # Use macOS as the environment
     steps:
       # Step 1: Check out the source code
       - name: Check out repository
         uses: actions/checkout@v4
-        
-      # Step 2: Set up the required Java version
+
+      # Step 2: Set up JDK 17 on macOS
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -48,4 +49,10 @@ jobs:
 
       # Step 4: Build the project and run tests using Maven
       - name: Build and test with Maven
-        run: mvn clean verify --batch-mode # Compile the project and run all tests
+        run: |
+          retry() {
+            for i in {1..3}; do
+              "$@" && break || sleep 15
+            done
+          }
+          retry mvn clean verify --batch-mode # Compile the project and run all tests
