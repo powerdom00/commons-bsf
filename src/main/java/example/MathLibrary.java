@@ -16,64 +16,63 @@
  */
 package example;
 
-
 public class MathLibrary {
-    // Funzione per calcolare il seno di un angolo in gradi
+    // Function to calculate the sine of an angle in degrees
     public double sinFunction(double degrees) {
-        double radians = Math.toRadians(degrees);  // Converte i gradi in radianti
-        return Math.sin(radians);  // Calcola il seno
+        double radians = Math.toRadians(degrees);  // Convert degrees to radians
+        return Math.sin(radians);  // Calculate sine
     }
 
-    // Funzione per calcolare il coseno di un angolo in gradi
+    // Function to calculate the cosine of an angle in degrees
     public double cosFunction(double degrees) {
-        double radians = Math.toRadians(degrees);  // Converte i gradi in radianti
-        return Math.cos(radians);  // Calcola il coseno
+        double radians = Math.toRadians(degrees);  // Convert degrees to radians
+        return Math.cos(radians);  // Calculate cosine
     }
 
-    // Funzione per calcolare la tangente di un angolo in gradi
+    // Function to calculate the tangent of an angle in degrees
     public double tanFunction(double degrees) {
-        double radians = Math.toRadians(degrees);  // Converte i gradi in radianti
-        return Math.tan(radians);  // Calcola la tangente
+        double radians = Math.toRadians(degrees);  // Convert degrees to radians
+        return Math.tan(radians);  // Calculate tangent
     }
 
-    // Funzione per calcolare l'esponenziale (e^x) di un numero
+    // Function to calculate the exponential (e^x) of a number
     public double expFunction(double x) {
-        return Math.exp(x);  // Calcola e elevato a x
+        return Math.exp(x);  // Calculate e raised to the power of x
     }
 
-    // Funzione per calcolare il logaritmo naturale (ln) di un numero
+    // Function to calculate the natural logarithm (ln) of a number
     public double logFunction(double x) {
         if (x <= 0) {
-            throw new IllegalArgumentException("Il logaritmo naturale è definito solo per numeri positivi.");
+            throw new IllegalArgumentException("Natural logarithm is defined only for positive numbers.");
         }
-        return Math.log(x);  // Calcola il logaritmo naturale di x
+        return Math.log(x);  // Calculate the natural logarithm of x
     }
 
-    // Funzione per calcolare la radice quadrata di un numero
+    // Function to calculate the square root of a number
     public double sqrtFunction(double x) {
         if (x < 0) {
-            throw new IllegalArgumentException("La radice quadrata non è definita per numeri negativi.");
+            throw new IllegalArgumentException("Square root is not defined for negative numbers.");
         }
-        return Math.sqrt(x);  // Calcola la radice quadrata di x
+        return Math.sqrt(x);  // Calculate the square root of x
     }
 
-    // Funzione per calcolare la potenza (x^y) di un numero
+    // Function to calculate the power (x^y) of a number
     public double powFunction(double base, double exponent) {
-        return Math.pow(base, exponent);  // Calcola base elevato alla potenza exponent
+        return Math.pow(base, exponent);  // Calculate base raised to the power of exponent
     }
 
-    // Funzione per calcolare il valore assoluto di un numero
+    // Function to calculate the absolute value of a number
     public double absFunction(double x) {
-        return Math.abs(x);  // Restituisce il valore assoluto di x
+        return Math.abs(x);  // Return the absolute value of x
     }
 
-    // Funzione per calcolare il valore massimo tra due numeri
+    // Function to find the maximum value between two numbers
     public double maxFunction(double a, double b) {
-        return Math.max(a, b);  // Restituisce il massimo tra a e b
+        return Math.max(a, b);  // Return the maximum of a and b
     }
 
-    // Funzione per calcolare il valore minimo tra due numeri
+    // Function to find the minimum value between two numbers
     public double minFunction(double a, double b) {
-        return Math.min(a, b);  // Restituisce il minimo tra a e b
+        return Math.min(a, b);  // Return the minimum of a and b
     }
 }

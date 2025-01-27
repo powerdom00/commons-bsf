@@ -143,6 +143,7 @@ public abstract class BSFEngineImpl implements BSFEngine {
         // propagate change events to me
         this.classPath = mgr.getClassPath();
         this.tempDir = mgr.getTempDir();
+
         this.classLoader = mgr.getClassLoader();
     }
 

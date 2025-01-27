@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.StringTokenizer;
@@ -141,6 +142,10 @@ public class StringUtils {
         }
 
         try {
+            InetAddress ip = InetAddress.getByName(url.getHost());
+            if (ip.isLoopbackAddress() || ip.isSiteLocalAddress()) {
+                throw new IllegalArgumentException("Access to internal URLs is prohibited");
+            }
             final Object content = url.getContent();
 
             if (content == null) {
@@ -211,6 +216,10 @@ public class StringUtils {
             url = new URL(contextURL, spec);
 
             try {
+                InetAddress ip = InetAddress.getByName(url.getHost());
+                if (ip.isLoopbackAddress() || ip.isSiteLocalAddress()) {
+                    throw new IllegalArgumentException("Access to internal URLs is prohibited");
+                }
                 url.openStream();
             } catch (final IOException ioe1) {
                 throw new MalformedURLException(FILE_NOT_FOUND + url);
@@ -219,6 +228,10 @@ public class StringUtils {
             url = new URL("file", "", spec);
 
             try {
+                InetAddress ip = InetAddress.getByName(url.getHost());
+                if (ip.isLoopbackAddress() || ip.isSiteLocalAddress()) {
+                    throw new IllegalArgumentException("Access to internal URLs is prohibited");
+                }
                 url.openStream();
             } catch (final IOException ioe2) {
                 if (contextURL != null) {

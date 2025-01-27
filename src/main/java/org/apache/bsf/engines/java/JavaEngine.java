@@ -217,12 +217,8 @@ public class JavaEngine extends BSFEngineImpl {
 
             if (classname != null) {
                 // Generated class
-                File file = new File(tempDir + File.separatorChar + classname + ".class");
-//              if(file.exists())
-//              file.delete();
-
                 // Search for and clean up minor classes, classname$xxx.class
-                file = new File(tempDir); // ***** Is this required?
+                File file = new File(tempDir); // ***** Is this required?
                 minorPrefix = classname + "$"; // Indirect arg to filter
                 final String[] minorClassfiles = file.list(new FilenameFilter() {
                     // Starts with classname$ and ends with .class

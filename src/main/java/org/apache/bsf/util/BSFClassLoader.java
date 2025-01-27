@@ -68,7 +68,7 @@ class BSFClassLoader extends ClassLoader {
         return data;
     }
 
-    public void setTempDir(final String tempDir) {
+    void setTempDir(final String tempDir) {
         this.tempDir = tempDir;
     }
 }
